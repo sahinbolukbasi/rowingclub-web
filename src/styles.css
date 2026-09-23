@@ -1,0 +1,129 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Brand tokens — Cinematic duotone poster */
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-crim: var(--crim);
+  --color-cyan: var(--cyan-brand);
+  --color-teal: var(--teal);
+
+  --font-display: "Anton", sans-serif;
+  --font-sans: "Archivo", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Brand palette */
+  --ink: oklch(0.16 0.03 200);
+  --paper: oklch(0.95 0.02 85);
+  --crim: oklch(0.62 0.22 32);
+  --cyan-brand: oklch(0.78 0.13 215);
+  --teal: oklch(0.45 0.09 210);
+
+  /* shadcn semantic — mapped to brand */
+  --background: var(--ink);
+  --foreground: var(--paper);
+  --card: oklch(0.20 0.03 200);
+  --card-foreground: var(--paper);
+  --popover: oklch(0.20 0.03 200);
+  --popover-foreground: var(--paper);
+  --primary: var(--crim);
+  --primary-foreground: var(--ink);
+  --secondary: oklch(0.26 0.03 200);
+  --secondary-foreground: var(--paper);
+  --muted: oklch(0.26 0.03 200);
+  --muted-foreground: oklch(0.70 0.03 200);
+  --accent: var(--teal);
+  --accent-foreground: var(--paper);
+  --destructive: oklch(0.62 0.22 32);
+  --destructive-foreground: var(--paper);
+  --border: oklch(0.95 0.02 85 / 12%);
+  --input: oklch(0.95 0.02 85 / 15%);
+  --ring: var(--teal);
+  --chart-1: var(--crim);
+  --chart-2: var(--cyan-brand);
+  --chart-3: var(--teal);
+  --chart-4: oklch(0.78 0.13 215);
+  --chart-5: oklch(0.62 0.22 32);
+  --sidebar: oklch(0.20 0.03 200);
+  --sidebar-foreground: var(--paper);
+  --sidebar-primary: var(--crim);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--teal);
+  --sidebar-accent-foreground: var(--paper);
+  --sidebar-border: oklch(0.95 0.02 85 / 12%);
+  --sidebar-ring: var(--teal);
+}
+
+.dark {
+  --background: var(--ink);
+  --foreground: var(--paper);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+  }
+}
+
+@utility noise-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
