@@ -16,10 +16,15 @@ import { Route as KulupRouteImport } from './routes/kulup'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminLogoutRouteImport } from './routes/admin/logout'
 import { Route as PaymentCheckoutRouteImport } from './routes/payment/checkout'
 import { Route as ProductRouteImport } from './routes/product.'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as SiparisIdRouteImport } from './routes/siparis.$id'
+import { Route as AdminContentClubRouteImport } from './routes/admin/content/club'
+import { Route as AdminContentContactRouteImport } from './routes/admin/content/contact'
+import { Route as AdminContentHomepageRouteImport } from './routes/admin/content/homepage'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders.'
 import { Route as AdminOrdersIdRouteImport } from './routes/admin/orders.$id'
 import { Route as AdminProductsEditRouteImport } from './routes/admin/products..edit'
@@ -61,6 +66,16 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
   path: '/admin/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLogoutRoute = AdminLogoutRouteImport.update({
+  id: '/admin/logout',
+  path: '/admin/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentCheckoutRoute = PaymentCheckoutRouteImport.update({
   id: '/payment/checkout',
   path: '/payment/checkout',
@@ -79,6 +94,21 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
 const SiparisIdRoute = SiparisIdRouteImport.update({
   id: '/siparis/$id',
   path: '/siparis/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentClubRoute = AdminContentClubRouteImport.update({
+  id: '/admin/content/club',
+  path: '/admin/content/club',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentContactRoute = AdminContentContactRouteImport.update({
+  id: '/admin/content/contact',
+  path: '/admin/content/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentHomepageRoute = AdminContentHomepageRouteImport.update({
+  id: '/admin/content/homepage',
+  path: '/admin/content/homepage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
@@ -115,11 +145,16 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRoute
   '/product/': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/logout': typeof AdminLogoutRoute
   '/payment/checkout': typeof PaymentCheckoutRoute
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/orders/': typeof AdminOrdersRoute
+  '/admin/content/club': typeof AdminContentClubRoute
+  '/admin/content/contact': typeof AdminContentContactRoute
+  '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -133,11 +168,16 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRoute
   '/product': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/logout': typeof AdminLogoutRoute
   '/payment/checkout': typeof PaymentCheckoutRoute
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin': typeof AdminIndexRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/content/club': typeof AdminContentClubRoute
+  '/admin/content/contact': typeof AdminContentContactRoute
+  '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -152,11 +192,16 @@ export interface FileRoutesById {
   '/shop': typeof ShopRoute
   '/product/': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/logout': typeof AdminLogoutRoute
   '/payment/checkout': typeof PaymentCheckoutRoute
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/orders/': typeof AdminOrdersRoute
+  '/admin/content/club': typeof AdminContentClubRoute
+  '/admin/content/contact': typeof AdminContentContactRoute
+  '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -172,11 +217,16 @@ export interface FileRouteTypes {
     | '/shop'
     | '/product/'
     | '/admin/dashboard'
+    | '/admin/login'
+    | '/admin/logout'
     | '/payment/checkout'
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin/'
     | '/admin/orders/'
+    | '/admin/content/club'
+    | '/admin/content/contact'
+    | '/admin/content/homepage'
     | '/admin/orders/$id'
     | '/admin/products/edit'
     | '/admin/products/new'
@@ -190,11 +240,16 @@ export interface FileRouteTypes {
     | '/shop'
     | '/product'
     | '/admin/dashboard'
+    | '/admin/login'
+    | '/admin/logout'
     | '/payment/checkout'
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin'
     | '/admin/orders'
+    | '/admin/content/club'
+    | '/admin/content/contact'
+    | '/admin/content/homepage'
     | '/admin/orders/$id'
     | '/admin/products/edit'
     | '/admin/products/new'
@@ -208,11 +263,16 @@ export interface FileRouteTypes {
     | '/shop'
     | '/product/'
     | '/admin/dashboard'
+    | '/admin/login'
+    | '/admin/logout'
     | '/payment/checkout'
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin/'
     | '/admin/orders/'
+    | '/admin/content/club'
+    | '/admin/content/contact'
+    | '/admin/content/homepage'
     | '/admin/orders/$id'
     | '/admin/products/edit'
     | '/admin/products/new'
@@ -227,11 +287,16 @@ export interface RootRouteChildren {
   ShopRoute: typeof ShopRoute
   ProductRoute: typeof ProductRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminLogoutRoute: typeof AdminLogoutRoute
   PaymentCheckoutRoute: typeof PaymentCheckoutRoute
   ProductSlugRoute: typeof ProductSlugRoute
   SiparisIdRoute: typeof SiparisIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminContentClubRoute: typeof AdminContentClubRoute
+  AdminContentContactRoute: typeof AdminContentContactRoute
+  AdminContentHomepageRoute: typeof AdminContentHomepageRoute
   AdminOrdersIdRoute: typeof AdminOrdersIdRoute
   AdminProductsEditRoute: typeof AdminProductsEditRoute
   AdminProductsNewRoute: typeof AdminProductsNewRoute
@@ -289,6 +354,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/logout': {
+      id: '/admin/logout'
+      path: '/admin/logout'
+      fullPath: '/admin/logout'
+      preLoaderRoute: typeof AdminLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/checkout': {
       id: '/payment/checkout'
       path: '/payment/checkout'
@@ -315,6 +394,27 @@ declare module '@tanstack/react-router' {
       path: '/siparis/$id'
       fullPath: '/siparis/$id'
       preLoaderRoute: typeof SiparisIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/club': {
+      id: '/admin/content/club'
+      path: '/admin/content/club'
+      fullPath: '/admin/content/club'
+      preLoaderRoute: typeof AdminContentClubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/contact': {
+      id: '/admin/content/contact'
+      path: '/admin/content/contact'
+      fullPath: '/admin/content/contact'
+      preLoaderRoute: typeof AdminContentContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/homepage': {
+      id: '/admin/content/homepage'
+      path: '/admin/content/homepage'
+      fullPath: '/admin/content/homepage'
+      preLoaderRoute: typeof AdminContentHomepageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/orders/': {
@@ -363,11 +463,16 @@ const rootRouteChildren: RootRouteChildren = {
   ShopRoute: ShopRoute,
   ProductRoute: ProductRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminLogoutRoute: AdminLogoutRoute,
   PaymentCheckoutRoute: PaymentCheckoutRoute,
   ProductSlugRoute: ProductSlugRoute,
   SiparisIdRoute: SiparisIdRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminContentClubRoute: AdminContentClubRoute,
+  AdminContentContactRoute: AdminContentContactRoute,
+  AdminContentHomepageRoute: AdminContentHomepageRoute,
   AdminOrdersIdRoute: AdminOrdersIdRoute,
   AdminProductsEditRoute: AdminProductsEditRoute,
   AdminProductsNewRoute: AdminProductsNewRoute,

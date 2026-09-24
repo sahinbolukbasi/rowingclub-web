@@ -9,13 +9,15 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "deploy": "bash scripts/deploy.sh"
   },
   "overrides": {
     "rolldown": "1.2.1"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1136.0",
+    "@aws-sdk/client-s3": "^3.1138.0",
     "@aws-sdk/lib-dynamodb": "^3.1136.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",

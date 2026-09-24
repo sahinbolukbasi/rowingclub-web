@@ -21,7 +21,7 @@ function ProductCard({ product }: { product: any }) {
   const { addItem, open: openCart } = useCart();
   const hasDiscount = product.discount && product.discount.value > 0;
   const discPrice = calcDiscountedPrice(product.price, product.discount);
-  const outOfStock = product.stockPerSize && totalStock(product) === 0;
+  const isOutOfStock = product.isClosed === true || (product.stockPerSize && totalStock(product) === 0);
   const [showQuickBuy, setShowQuickBuy] = useState(false);
   const [qSize, setQSize] = useState(product.sizes?.[0] || "M");
   const [qColor, setQColor] = useState(product.colors?.[0]?.name || "");
@@ -36,9 +36,17 @@ function ProductCard({ product }: { product: any }) {
     <article className="group">
       <Link to="/product/$slug" params={{ slug: product.slug }}>
         <div className="relative overflow-hidden rounded-lg bg-teal/20">
-          <img src={product.images?.[0] || product.image || ""} alt={product.name} loading="lazy" className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={product.images?.[0] || product.image || ""} alt={product.name} loading="lazy" className={`aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isOutOfStock ? "grayscale-[40%]" : ""}`} />
           {product.tag && <span className="absolute left-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-ink">{product.tag}</span>}
-          {hasDiscount && <span className="absolute right-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white">%{product.discount.value} İndirim</span>}
+          {isOutOfStock ? (
+            <span className="absolute right-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-paper shadow-md">
+              STOK YOK
+            </span>
+          ) : hasDiscount ? (
+            <span className="absolute right-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white">
+              %{product.discount.value} İndirim
+            </span>
+          ) : null}
         </div>
       </Link>
       <div className="mt-4 flex items-baseline justify-between">
@@ -48,8 +56,15 @@ function ProductCard({ product }: { product: any }) {
         </div>
       </div>
       <p className="mt-1 text-sm text-paper/60">{product.description}</p>
-      {outOfStock ? (
-        <p className="mt-3 w-full rounded-full border border-paper/10 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-paper/40">Stokta yok</p>
+      {isOutOfStock ? (
+        <div className="mt-3 flex gap-2">
+          <Link to="/product/$slug" params={{ slug: product.slug }} className="flex-1 rounded-full border border-paper/20 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-paper/70 transition hover:border-paper/50">
+            İncele
+          </Link>
+          <span className="flex-1 rounded-full border border-crim/40 bg-crim/10 py-2 text-center text-[11px] font-bold uppercase tracking-[0.22em] text-crim">
+            Stok Yok
+          </span>
+        </div>
       ) : (
         <div className="mt-3 flex gap-2">
           <Link to="/product/$slug" params={{ slug: product.slug }} className="flex-1 rounded-full border border-paper/20 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-paper/70 transition hover:border-paper/50">
@@ -81,7 +96,7 @@ function ProductCard({ product }: { product: any }) {
                   )}
                   {product.sizes?.length > 1 && (
                     <div className="mb-2">
-                      <p className="text-[9px] uppercase tracking-[0.15em] text-paper/40 mb1">Beden</p>
+                      <p className="text-[9px] uppercase tracking-[0.15em] text-paper/40 mb-1">Beden</p>
                       <div className="flex flex-wrap gap-1">
                         {product.sizes.filter((s: string) => (product.stockPerSize?.[s] ?? 0) > 0).map((s: string) => (
                           <button key={s} onClick={(e) => { e.stopPropagation(); setQSize(s); }} className={`text-[10px] uppercase px-2 py-0.5 rounded border transition ${qSize === s ? "border-cyan bg-cyan text-ink" : "border-paper/20 text-paper/60 hover:border-paper/50"}`}>{s}</button>
@@ -113,7 +128,7 @@ function ShopPage() {
         <p className="mt-3 max-w-md text-sm text-paper/60">Her ürün organik pamuktan, küçük partiler halinde üretilmiştir. Stok bitince yenilenene kadar bekleyin.</p>
       </div>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {products.filter((p) => totalStock(p) > 0 || !p.stockPerSize).map((product) => <ProductCard key={product.slug} product={product} />)}
+        {products.map((product) => <ProductCard key={product.slug || product.id} product={product} />)}
       </div>
     </section>
   );

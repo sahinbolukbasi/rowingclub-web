@@ -25,6 +25,7 @@ function EditProductPage() {
   const [category, setCategory] = useState(""); const [price, setPrice] = useState("");
   const [description, setDescription] = useState(""); const [detail, setDetail] = useState("");
   const [tag, setTag] = useState(""); const [images, setImages] = useState<string[]>([]);
+  const [visible, setVisible] = useState(true); // New field for product visibility
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<{ name: string; hex: string }[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
@@ -33,6 +34,7 @@ function EditProductPage() {
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false); // For image upload status
 
   useEffect(() => {
     const token = getToken();
@@ -43,6 +45,7 @@ function EditProductPage() {
       setPrice(String(p.price)); setDescription(p.description || "");
       setDetail(p.detail || ""); setTag(p.tag || "");
       setImages(p.images?.length ? p.images : [""]);
+      setVisible(p.visible !== false); // Default to true if not specified
 
       const colorNames = p.colors?.map((c: any) => c.name) ?? [];
       const predefColors = colorNames.filter((n: string) => PREDEFINED_COLORS.some((pc) => pc.name === n));

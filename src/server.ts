@@ -12,14 +12,17 @@ import {
   UpdateCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const REGION = process.env.AWS_REGION ?? "eu-central-1";
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE ?? "kurek-products";
 const ORDERS_TABLE = process.env.ORDERS_TABLE ?? "kurek-orders";
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE ?? "kurek-contacts";
+const USERS_TABLE = process.env.USERS_TABLE ?? "kurek-users";
 
 const _client = new DynamoDBClient({ region: REGION });
 const _doc = DynamoDBDocumentClient.from(_client);
+const _s3Client = new S3Client({ region: REGION });
 
 const ADMIN_TOKEN = "admin-token-kurek-kulubu";
 
@@ -32,7 +35,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 
 function checkAuth(request: Request): boolean {
   const url = new URL(request.url);
-  const token = url.searchParams.get("t") || "";
+  const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
   return token === ADMIN_TOKEN;
 }
 
@@ -56,6 +59,29 @@ function genId(prefix: string): string {
 // stockPerSize: { "S": 5, "M": 10, "L": 3, ... }
 // images: string[]
 // discount: { type: "percentage"|"fixed", value: number } | null
+// visible: boolean - whether the product is visible on the site
+// isClosed: boolean - whether the product is closed / out of stock
+
+async function uploadImageToS3(buffer: Uint8Array, fileName: string, contentType: string): Promise<string> {
+  const bucketName = process.env.S3_BUCKET_NAME || "kurek-kulubu-assets";
+  // Stored in public/assets/products so that CloudFront /assets/* origin serves it directly
+  const key = `public/assets/products/${fileName}`;
+  
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType || "image/jpeg",
+  });
+
+  try {
+    await _s3Client.send(command);
+    return `/assets/products/${fileName}`;
+  } catch (error) {
+    console.error("Error uploading to S3:", error);
+    throw new Error("S3 yükleme hatası: " + String(error));
+  }
+}
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -79,9 +105,38 @@ function calculateDiscountedPrice(price: number, discount: { type: string; value
   return price;
 }
 
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46">
+  <style>
+    path, circle { fill: #072042; }
+    @media (prefers-color-scheme: dark) {
+      path, circle { fill: #FCFAF3; }
+    }
+  </style>
+  <circle cx="27.3" cy="15.41" r="1.353"/>
+  <path d="m25.85 16.85c-1.66 0.1-5.1 4.09-5.91 5.8h6.37l0.99-0.27 0.32 0.27h1.49c0.12 0 0.21-0.11 0.15-0.21-0.33-0.59-1.04-1.48-1.8-1.42-0.87 0.11-3.95 0.76-3.95 0.76l3.62-3.1 5.98 1.41-10.73 7.91c-0.87 0.08-1.71 0.37-2.43 0.85l-2.39 1.59c-0.21 0.13-0.19 0.43 0.01 0.56l1.27 0.78c0.19 0.12 0.44 0.11 0.62-0.01l2.38-1.72c0.58-0.41 1-0.94 1.23-1.52l10.83-8.06h0.35c0.25 0 0.43-0.19 0.43-0.44s-0.2-0.46-0.45-0.48l-0.33-0.04c-2.44-0.87-5.39-1.93-6.69-2.41-0.46-0.16-0.93-0.27-1.36-0.25z"/>
+  <path d="m28.25 23.25c-8.18-0.02-20.37-0.1-25.1 0.22-0.11 0.01-0.11 0.08-0.01 0.11 2.16 0.73 8.17 1.49 12.37 1.48 3.4-0.07 6.35-0.21 9.8 0.35l2.94-2.16z"/>
+  <path d="m30.72 23.22c4.13 0.03 8.57-0.29 11.96-0.7 0.1-0.01 0.14 0.06 0.05 0.12-1.24 0.9-3.53 2.34-5.31 2.73-2.13 0.45-7.05 0.34-9.85 0.17l3.15-2.32z"/>
+  <path d="m23.62 26.65c-2.33-0.41-5.27-0.8-7.81-0.8-5.09 0-9.17 1.39-11.01 2.23-0.04 0.02-0.01 0.08 0.03 0.07 1.84-0.55 5.08-1.27 8.44-1.27 3.19 0 6.47 0.44 8.86 0.85l1.49-1.08z"/>
+  <path d="m25.62 27.06c2.08 0.47 4.62 0.89 7.07 0.89 3.14 0 5.97-0.73 7.33-1.19 0.04-0.01 0.06 0.04 0.03 0.06-1.82 0.99-5.61 2.35-9.32 2.35-2.35-0.04-4.99-0.56-6.53-0.98l1.42-1.13z"/>
+</svg>`;
+
 async function handleApiRoutes(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  if (path === "/favicon.svg") {
+    return new Response(FAVICON_SVG, {
+      status: 200,
+      headers: {
+        "content-type": "image/svg+xml",
+        "cache-control": "public, max-age=86400",
+      },
+    });
+  }
+
+  if (path === "/favicon.ico") {
+    return Response.redirect(new URL("/assets/favicon.ico", request.url).toString().replace(url.host, request.headers.get("x-forwarded-host") || url.host), 302);
+  }
 
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -96,7 +151,9 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   // ─── Products ──────────────────────────────────
   if (path === "/api/products" && request.method === "GET") {
     const result = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
-    return jsonResponse(result.Items ?? []);
+    // Filter out invisible products for regular users
+    const products = (result.Items ?? []).filter((p: any) => p.visible !== false);
+    return jsonResponse(products);
   }
 
   if (path === "/api/admin/products" && request.method === "GET") {
@@ -111,6 +168,7 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const product = {
       id: genId("prod"),
       ...body,
+      visible: body.visible ?? true, // Default to visible
       createdAt: new Date().toISOString(),
     };
     await _doc.send(new PutCommand({ TableName: PRODUCTS_TABLE, Item: product }));
@@ -219,22 +277,177 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   }
 
   // ─── Contacts ──────────────────────────────────
+  // ─── Contacts ──────────────────────────────────
   if (path === "/api/contact" && request.method === "POST") {
     const body = await request.json() as any;
     const contact = {
       id: genId("cnt"),
       ...body,
       read: false,
+      status: "pending", // pending | in_progress | resolved
       createdAt: new Date().toISOString(),
     };
     await _doc.send(new PutCommand({ TableName: CONTACTS_TABLE, Item: contact }));
-    return jsonResponse({ success: true });
+    return jsonResponse({ success: true, id: contact.id });
   }
 
   if (path === "/api/admin/contacts" && request.method === "GET") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
     const result = await _doc.send(new ScanCommand({ TableName: CONTACTS_TABLE }));
-    return jsonResponse(result.Items ?? []);
+    const items = (result.Items ?? []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return jsonResponse(items);
+  }
+
+  if (path.startsWith("/api/admin/contacts/") && request.method === "PUT") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = path.split("/").pop();
+    const body = await request.json() as any;
+    const updateExpr: string[] = [];
+    const exprAttrValues: Record<string, unknown> = {};
+    const exprAttrNames: Record<string, string> = {};
+    for (const [key, value] of Object.entries(body)) {
+      if (key === "id" || value === undefined) continue;
+      updateExpr.push(`#${key} = :${key}`);
+      exprAttrNames[`#${key}`] = key;
+      exprAttrValues[`:${key}`] = value;
+    }
+    if (updateExpr.length > 0) {
+      await _doc.send(new UpdateCommand({
+        TableName: CONTACTS_TABLE,
+        Key: { id },
+        UpdateExpression: `SET ${updateExpr.join(", ")}`,
+        ExpressionAttributeNames: exprAttrNames,
+        ExpressionAttributeValues: exprAttrValues,
+      }));
+    }
+    return jsonResponse({ success: true });
+  }
+
+  if (path.startsWith("/api/admin/contacts/") && request.method === "DELETE") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = path.split("/").pop();
+    await _doc.send(new DeleteCommand({ TableName: CONTACTS_TABLE, Key: { id } }));
+    return jsonResponse({ success: true });
+  }
+
+  // ─── Users Management ───────────────────────────
+  if (path === "/api/admin/users" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    let customUsers: any[] = [];
+    try {
+      const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
+      customUsers = (result.Items ?? []).map((u: any) => {
+        const { password: _, ...safeUser } = u;
+        return safeUser;
+      });
+    } catch (e) {
+      console.warn("Could not scan users table:", e);
+    }
+    const defaultUser = {
+      id: "admin-root",
+      username: "admin",
+      name: "Sistem Yöneticisi",
+      role: "Süper Admin",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      isDefault: true,
+    };
+    return jsonResponse([defaultUser, ...customUsers]);
+  }
+
+  if (path === "/api/admin/users" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json() as any;
+    if (!body.username || !body.password) {
+      return jsonResponse({ error: "Kullanıcı adı ve şifre zorunludur" }, 400);
+    }
+    const user = {
+      id: genId("usr"),
+      username: body.username.trim(),
+      password: body.password.trim(),
+      name: body.name || body.username,
+      role: body.role || "Admin",
+      createdAt: new Date().toISOString(),
+    };
+    await _doc.send(new PutCommand({ TableName: USERS_TABLE, Item: user }));
+    const { password: _, ...safeUser } = user;
+    return jsonResponse(safeUser);
+  }
+
+  if (path.startsWith("/api/admin/users/") && request.method === "DELETE") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = path.split("/").pop();
+    if (id === "admin-root") {
+      return jsonResponse({ error: "Varsayılan yönetici hesabı silinemez" }, 400);
+    }
+    await _doc.send(new DeleteCommand({ TableName: USERS_TABLE, Key: { id } }));
+    return jsonResponse({ success: true });
+  }
+
+  if (path === "/api/admin/auth/login" && request.method === "POST") {
+    const body = await request.json() as { username?: string; password?: string };
+    const username = (body.username || "").trim();
+    const password = (body.password || "").trim();
+
+    if (username === "admin" && password === "admin123") {
+      return jsonResponse({
+        success: true,
+        token: ADMIN_TOKEN,
+        user: { username: "admin", name: "Sistem Yöneticisi", role: "Süper Admin" },
+      });
+    }
+
+    try {
+      const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
+      const found = (result.Items ?? []).find(
+        (u: any) => u.username === username && u.password === password
+      );
+      if (found) {
+        return jsonResponse({
+          success: true,
+          token: ADMIN_TOKEN,
+          user: { username: found.username, name: found.name, role: found.role },
+        });
+      }
+    } catch (e) {
+      console.error("Login verification error:", e);
+    }
+
+    return jsonResponse({ error: "Kullanıcı adı veya şifre hatalı" }, 401);
+  }
+
+  // ─── Image Upload (JSON base64 & multipart supported) ─
+  if (path === "/api/admin/upload-image" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    
+    try {
+      const cType = request.headers.get("content-type") || "";
+      let buffer: Uint8Array;
+      let fileName: string = `image-${Date.now()}.jpg`;
+      let contentType: string = "image/jpeg";
+
+      if (cType.includes("application/json")) {
+        const json = await request.json() as { fileName?: string; contentType?: string; data: string };
+        if (!json.data) return jsonResponse({ error: "Görsel verisi bulunamadı" }, 400);
+        if (json.fileName) fileName = json.fileName;
+        if (json.contentType) contentType = json.contentType;
+        const b64 = json.data.includes(",") ? json.data.split(",")[1]! : json.data;
+        buffer = Uint8Array.from(Buffer.from(b64, "base64"));
+      } else {
+        const formData = await request.formData();
+        const file = formData.get("image") as File | null;
+        if (!file) return jsonResponse({ error: "Görsel dosyası seçilmedi" }, 400);
+        buffer = new Uint8Array(await file.arrayBuffer());
+        fileName = file.name;
+        contentType = file.type || "image/jpeg";
+      }
+
+      const safeFileName = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+      const imageUrl = await uploadImageToS3(buffer, safeFileName, contentType);
+      return jsonResponse({ url: imageUrl, success: true });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      return jsonResponse({ error: "Resim yükleme hatası: " + String(error) }, 500);
+    }
   }
 
   // ─── Config / sizes+colors ─────────────────────

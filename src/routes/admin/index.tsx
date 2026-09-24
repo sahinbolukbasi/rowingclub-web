@@ -17,19 +17,55 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin123");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      localStorage.setItem("admin-token", ADMIN_TOKEN);
-      router.navigate({ to: "/admin/dashboard" });
-    } else {
-      setError("Kullanıcı adı veya şifre hatalı");
+    try {
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem("admin-token", data.token);
+        localStorage.setItem("admin_authenticated", "true");
+        // 30 days session
+        localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+        if (data.user) {
+          localStorage.setItem("admin_user", JSON.stringify(data.user));
+        }
+        router.navigate({ to: "/admin/dashboard" });
+        return;
+      } else {
+        // Fallback local check
+        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+          localStorage.setItem("admin-token", ADMIN_TOKEN);
+          localStorage.setItem("admin_authenticated", "true");
+          localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+          router.navigate({ to: "/admin/dashboard" });
+          return;
+        }
+        setError(data.error || "Kullanıcı adı veya şifre hatalı");
+      }
+    } catch {
+      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        localStorage.setItem("admin-token", ADMIN_TOKEN);
+        localStorage.setItem("admin_authenticated", "true");
+        localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+        router.navigate({ to: "/admin/dashboard" });
+        return;
+      }
+      setError("Giriş yapılamadı, lütfen tekrar deneyin.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,9 +112,10 @@ function AdminLoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-full bg-crim py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan"
+            disabled={loading}
+            className="w-full rounded-full bg-crim py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50"
           >
-            Giriş yap
+            {loading ? "Giriş yapılıyor..." : "Giriş yap"}
           </button>
         </form>
 

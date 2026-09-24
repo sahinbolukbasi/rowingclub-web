@@ -90,6 +90,11 @@ function ProductPage() {
           <h1 className="font-display text-4xl uppercase md:text-6xl">{product.name}</h1>
           <div className="mt-2 flex items-center gap-3">
             {hasDiscount ? <><span className="text-2xl text-crim font-bold">₺{discPrice}</span><span className="text-lg text-paper/40 line-through">₺{product.price}</span><span className="text-[10px] uppercase text-crim">%{product.discount.value} indirim</span></> : <span className="text-2xl text-cyan">₺{product.price}</span>}
+            {product.isClosed && (
+              <span className="rounded-full bg-crim px-3 py-1 text-xs font-bold uppercase tracking-wider text-paper">
+                STOK YOK
+              </span>
+            )}
           </div>
           <p className="mt-6 leading-relaxed text-paper/70">{product.detail}</p>
           {product.colors?.length > 0 && (
@@ -109,17 +114,23 @@ function ProductPage() {
                 {product.sizes.map((s: string) => {
                   const stockCount = product.stockPerSize?.[s] ?? 0;
                   return (
-                    <button key={s} onClick={() => setSize(s)} disabled={stockCount === 0} className={`min-w-12 rounded-full border px-4 py-2 text-sm transition ${selSize === s && stockCount > 0 ? "border-cyan bg-cyan text-ink" : stockCount === 0 ? "border-paper/10 text-paper/30 line-through cursor-not-allowed" : "border-paper/20 text-paper/70 hover:border-paper/50"}`}>
-                      {s}{stockCount > 0 && stockCount <= 3 && <span className="ml-1 text-[9px] text-crim">({stockCount})</span>}
+                    <button key={s} onClick={() => setSize(s)} disabled={product.isClosed || stockCount === 0} className={`min-w-12 rounded-full border px-4 py-2 text-sm transition ${selSize === s && stockCount > 0 && !product.isClosed ? "border-cyan bg-cyan text-ink" : (stockCount === 0 || product.isClosed) ? "border-paper/10 text-paper/30 line-through cursor-not-allowed" : "border-paper/20 text-paper/70 hover:border-paper/50"}`}>
+                      {s}{stockCount > 0 && stockCount <= 3 && !product.isClosed && <span className="ml-1 text-[9px] text-crim">({stockCount})</span>}
                     </button>
                   );
                 })}
               </div>
             </div>
           )}
-          <button onClick={() => addItem(product, selSize, selColor)} className="mt-8 w-full rounded-full bg-crim py-4 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan">
-            Sepete ekle · {hasDiscount ? `₺${discPrice}` : `₺${product.price}`}
-          </button>
+          {product.isClosed ? (
+            <button disabled className="mt-8 w-full rounded-full border border-crim/40 bg-crim/10 py-4 font-display text-sm uppercase tracking-[0.15em] text-crim cursor-not-allowed">
+              Stokta Yok · Satışa Kapalı
+            </button>
+          ) : (
+            <button onClick={() => addItem(product, selSize, selColor)} className="mt-8 w-full rounded-full bg-crim py-4 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan">
+              Sepete ekle · {hasDiscount ? `₺${discPrice}` : `₺${product.price}`}
+            </button>
+          )}
           <div className="mt-6 space-y-2 text-[11px] uppercase tracking-[0.18em] text-paper/50">
             <p>✓ Organik pamuk · 220 gsm</p>
             <p>✓ 14 gün koşulsuz iade</p>

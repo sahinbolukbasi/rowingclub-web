@@ -4,16 +4,31 @@ import { useState } from "react";
 const API_BASE = "/api/admin";
 const ALL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
 const PREDEFINED_COLORS = [
-  { name: "Siyah", hex: "#000000" }, { name: "Beyaz", hex: "#ffffff" },
-  { name: "Lacivert", hex: "#17263b" }, { name: "Kırmızı", hex: "#e23a2e" },
-  { name: "Yeşil", hex: "#2d6a4f" }, { name: "Mavi", hex: "#12707f" },
-  { name: "Gri", hex: "#808080" }, { name: "Krem", hex: "#f3eee2" },
+  { name: "Siyah", hex: "#000000" },
+  { name: "Beyaz", hex: "#ffffff" },
+  { name: "Lacivert", hex: "#17263b" },
+  { name: "Kırmızı", hex: "#e23a2e" },
+  { name: "Yeşil", hex: "#2d6a4f" },
+  { name: "Mavi", hex: "#12707f" },
+  { name: "Gri", hex: "#808080" },
+  { name: "Krem", hex: "#f3eee2" },
 ];
 
-function getToken() { try { return localStorage.getItem("admin-token") ?? ""; } catch { return ""; } }
+function getToken() {
+  try {
+    return localStorage.getItem("admin-token") ?? "";
+  } catch {
+    return "";
+  }
+}
 
 export const Route = createFileRoute("/admin/products/new")({
-  head: () => ({ meta: [{ title: "Yeni Ürün — Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [
+      { title: "Yeni Ürün — Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: NewProductPage,
 });
 
@@ -26,7 +41,7 @@ function NewProductPage() {
   const [description, setDescription] = useState("");
   const [detail, setDetail] = useState("");
   const [tag, setTag] = useState("");
-  const [images, setImages] = useState<string[]>([""]);
+  const [images, setImages] = useState<string[]>([]);
 
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<{ name: string; hex: string }[]>([]);
@@ -36,104 +51,346 @@ function NewProductPage() {
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [discountValue, setDiscountValue] = useState("");
+  const [isClosed, setIsClosed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const toggleColor = (name: string) => setSelectedColors((p) => p.includes(name) ? p.filter((c) => c !== name) : [...p, name]);
+  const toggleColor = (name: string) =>
+    setSelectedColors((p) => (p.includes(name) ? p.filter((c) => c !== name) : [...p, name]));
+
   const addCustomColor = () => setCustomColors([...customColors, { name: "", hex: "#000000" }]);
-  const updCustomColor = (i: number, f: "name" | "hex", v: string) => { const n = [...customColors]; n[i] = { ...n[i]!, [f]: v }; setCustomColors(n); };
+  const updCustomColor = (i: number, f: "name" | "hex", v: string) => {
+    const n = [...customColors];
+    n[i] = { ...n[i]!, [f]: v };
+    setCustomColors(n);
+  };
 
   const toggleSize = (size: string) => {
     setSelectedSizes((p) => {
-      if (p.includes(size)) { const { [size]: _, ...r } = stockPerSize; setStockPerSize(r); return p.filter((s) => s !== size); }
-      setStockPerSize((s) => ({ ...s, [size]: "0" })); return [...p, size];
+      if (p.includes(size)) {
+        const { [size]: _, ...r } = stockPerSize;
+        setStockPerSize(r);
+        return p.filter((s) => s !== size);
+      }
+      setStockPerSize((s) => ({ ...s, [size]: "0" }));
+      return [...p, size];
     });
   };
 
-  const addImage = () => setImages([...images, ""]);
+  const addImageUrl = () => setImages([...images, ""]);
   const remImage = (i: number) => setImages(images.filter((_, idx) => idx !== i));
-  const updImage = (i: number, v: string) => { const n = [...images]; n[i] = v; setImages(n); };
+  const updImage = (i: number, v: string) => {
+    const n = [...images];
+    n[i] = v;
+    setImages(n);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const res = await fetch(`/api/admin/upload-image?t=${getToken()}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+            data: base64Data,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          setImages((prev) => [...prev.filter((i) => i.trim() !== ""), data.url]);
+        } else {
+          alert("Resim yükleme hatası: " + (data.error || "Bilinmeyen hata"));
+        }
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert("Hata: " + err.message);
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     const token = getToken();
     const allColors = [
-      ...selectedColors.map((n) => ({ name: n, hex: PREDEFINED_COLORS.find((c) => c.name === n)?.hex ?? "#000000" })),
+      ...selectedColors.map((n) => ({
+        name: n,
+        hex: PREDEFINED_COLORS.find((c) => c.name === n)?.hex ?? "#000000",
+      })),
       ...customColors.filter((c) => c.name.trim()),
     ];
     const sps: Record<string, number> = {};
-    for (const size of selectedSizes) { const v = parseInt(stockPerSize[size] || "0", 10); if (v > 0) sps[size] = v; }
+    for (const size of selectedSizes) {
+      const v = parseInt(stockPerSize[size] || "0", 10);
+      if (v > 0) sps[size] = v;
+    }
 
     await fetch(`${API_BASE}/products?t=${token}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        slug, name, price: Number(price), images: images.filter((i) => i.trim()),
-        description, detail, category, tag: tag || null,
-        colors: allColors, sizes: selectedSizes, stockPerSize: sps,
-        discount: discountEnabled && Number(discountValue) > 0 ? { type: discountType, value: Number(discountValue) } : null,
+        slug,
+        name,
+        price: Number(price),
+        images: images.filter((i) => i.trim()),
+        description,
+        detail,
+        category,
+        tag: tag || null,
+        colors: allColors,
+        sizes: selectedSizes,
+        stockPerSize: sps,
+        isClosed: isClosed,
+        discount:
+          discountEnabled && Number(discountValue) > 0
+            ? { type: discountType, value: Number(discountValue) }
+            : null,
       }),
     });
     setSaving(false);
     router.navigate({ to: "/admin/dashboard" });
   };
 
-  const discPrice = discountEnabled && Number(discountValue) > 0 && Number(price) > 0
-    ? (() => { const p = Number(price); const v = Number(discountValue); return discountType === "percentage" ? Math.round(p * (1 - v / 100)) : Math.max(0, p - v); })()
-    : null;
+  const discPrice =
+    discountEnabled && Number(discountValue) > 0 && Number(price) > 0
+      ? (() => {
+          const p = Number(price);
+          const v = Number(discountValue);
+          return discountType === "percentage" ? Math.round(p * (1 - v / 100)) : Math.max(0, p - v);
+        })()
+      : null;
 
   return (
     <div className="min-h-screen bg-ink text-paper">
       <header className="flex items-center justify-between border-b border-paper/15 px-6 py-4 lg:px-10">
-        <div className="flex items-center gap-3"><span className="size-2.5 rounded-full bg-crim" /><span className="font-display text-lg tracking-wide">Yeni Ürün</span></div>
-        <button onClick={() => router.navigate({ to: "/admin/dashboard" })} className="text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper">← Geri</button>
+        <div className="flex items-center gap-3">
+          <span className="size-2.5 rounded-full bg-crim" />
+          <span className="font-display text-lg tracking-wide">Yeni Ürün Ekle</span>
+        </div>
+        <button
+          onClick={() => router.navigate({ to: "/admin/dashboard" })}
+          className="text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper"
+        >
+          ← Geri
+        </button>
       </header>
+
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl px-6 py-8 lg:px-10 space-y-6">
+        {/* Ürün Kapatma Modu (Stok Yok) */}
+        <div
+          className={`rounded-xl border p-5 transition ${
+            isClosed
+              ? "border-crim/50 bg-crim/10 shadow-lg shadow-crim/10"
+              : "border-paper/20 bg-ink/40"
+          }`}
+        >
+          <label className="flex cursor-pointer items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-base uppercase tracking-wider text-paper">
+                  Ürünü Kapat (Stok Yok Modu)
+                </span>
+                {isClosed && (
+                  <span className="rounded-full bg-crim px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-paper animate-pulse">
+                    STOK YOK
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-paper/60 mt-1">
+                Açıldığında sitede ürün "Stok Yok" olarak gösterilir ve satın alınamaz. Yönetim panelinde üzeri blur'lu görünür.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={isClosed}
+              onChange={(e) => setIsClosed(e.target.checked)}
+              className="size-6 accent-crim cursor-pointer"
+            />
+          </label>
+        </div>
+
         <div className="grid gap-5 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Ürün Adı *</label>
-            <input type="text" value={name} onChange={(e) => { setName(e.target.value); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")); }} className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" required />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setSlug(
+                  e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "")
+                );
+              }}
+              className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+              required
+            />
           </div>
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Slug</label>
-            <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" required />
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+              required
+            />
           </div>
         </div>
+
         <div className="grid gap-5 md:grid-cols-3">
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Fiyat (₺) *</label>
-            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" required min="0" />
+            <input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+              required
+              min="0"
+            />
           </div>
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Kategori</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-lg border border-paper/20 bg-ink px-4 py-2.5 text-paper outline-none transition focus:border-cyan">
-              <option value="tisort">Tişört</option><option value="bros">Broş</option><option value="sapka">Şapka</option><option value="tayt">Tayt</option><option value="aksesuar">Aksesuar</option>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-lg border border-paper/20 bg-ink px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+            >
+              <option value="tisort">Tişört</option>
+              <option value="bros">Broş</option>
+              <option value="sapka">Şapka</option>
+              <option value="tayt">Tayt</option>
+              <option value="aksesuar">Aksesuar</option>
             </select>
           </div>
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Etiket</label>
-            <input type="text" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Yeni, Sınırlı, İndirim..." className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" />
+            <input
+              type="text"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder="Yeni, Sınırlı, İndirim..."
+              className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+            />
           </div>
         </div>
+
         <div>
           <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Kısa Açıklama</label>
-          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Detaylı Açıklama</label>
-          <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={3} className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan" />
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+          />
         </div>
 
-        {/* Images */}
         <div>
-          <label className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Ürün Görselleri (URL)</label>
-          {images.map((img, i) => (
-            <div key={i} className="mb-2 flex items-center gap-2">
-              <input type="text" value={img} onChange={(e) => updImage(i, e.target.value)} placeholder="https://..." className="flex-1 rounded-lg border border-paper/20 bg-transparent px-4 py-2 text-sm text-paper outline-none transition focus:border-cyan" />
-              {images.length > 1 && <button type="button" onClick={() => remImage(i)} className="text-crim text-xs">✕</button>}
+          <label className="mb-1 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Detaylı Açıklama</label>
+          <textarea
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
+          />
+        </div>
+
+        {/* Canlı Resim Yükleme ve Önizleme */}
+        <div>
+          <label className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Ürün Görselleri</label>
+
+          <div className="mb-4 border-2 border-dashed border-paper/30 rounded-xl p-6 text-center hover:border-cyan transition bg-ink/30">
+            <svg className="mx-auto h-10 w-10 text-paper/40" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H20m0 0V20m0 0h8m0 0H8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div className="mt-3">
+              <label className="cursor-pointer">
+                <span className="inline-flex items-center gap-2 rounded-full bg-crim px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-ink transition hover:bg-cyan">
+                  {uploading ? "S3'e Yükleniyor..." : "Bilgisayardan Resim Yükle"}
+                </span>
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={handleFileUpload}
+                />
+              </label>
+              <p className="mt-2 text-xs text-paper/40">PNG, JPG, WEBP — S3'e doğrudan yüklenir</p>
             </div>
-          ))}
-          <button type="button" onClick={addImage} className="text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper">+ Görsel ekle</button>
+          </div>
+
+          {/* Yüklü Resimler Galerisi */}
+          {images.filter((i) => i.trim()).length > 0 && (
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 mb-2">
+                Yüklü Görseller ({images.filter((i) => i.trim()).length})
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {images
+                  .filter((i) => i.trim())
+                  .map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative aspect-square rounded-lg border border-paper/20 overflow-hidden bg-ink/60 shadow"
+                    >
+                      <img src={img} alt="Ürün" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => remImage(idx)}
+                        className="absolute top-1 right-1 size-6 rounded-full bg-crim text-ink flex items-center justify-center text-xs font-bold shadow hover:bg-paper transition"
+                        title="Sil"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manuel URL Girişi */}
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 mb-2">Veya Resim URL'si Ekle</p>
+            {images.map((img, i) => (
+              <div key={i} className="mb-2 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={img}
+                  onChange={(e) => updImage(i, e.target.value)}
+                  placeholder="https://... veya /assets/..."
+                  className="flex-1 rounded-lg border border-paper/20 bg-transparent px-4 py-2 text-sm text-paper outline-none transition focus:border-cyan"
+                />
+                <button
+                  type="button"
+                  onClick={() => remImage(i)}
+                  className="text-crim text-xs px-2 py-1 hover:text-paper transition"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addImageUrl}
+              className="text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper"
+            >
+              + Başka URL Ekle
+            </button>
+          </div>
         </div>
 
         {/* Colors */}
@@ -141,32 +398,94 @@ function NewProductPage() {
           <label className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Renkler</label>
           <div className="flex flex-wrap gap-2">
             {PREDEFINED_COLORS.map((c) => (
-              <label key={c.name} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${selectedColors.includes(c.name) ? "border-cyan bg-cyan/10 text-cyan" : "border-paper/20 text-paper/60 hover:border-paper/50"}`}>
-                <input type="checkbox" checked={selectedColors.includes(c.name)} onChange={() => toggleColor(c.name)} className="sr-only" />
-                <span className="inline-block size-3 rounded-full" style={{ backgroundColor: c.hex }} />{c.name}
+              <label
+                key={c.name}
+                className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+                  selectedColors.includes(c.name)
+                    ? "border-cyan bg-cyan/10 text-cyan"
+                    : "border-paper/20 text-paper/60 hover:border-paper/50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedColors.includes(c.name)}
+                  onChange={() => toggleColor(c.name)}
+                  className="sr-only"
+                />
+                <span className="inline-block size-3 rounded-full" style={{ backgroundColor: c.hex }} />
+                {c.name}
               </label>
             ))}
           </div>
           {customColors.map((c, i) => (
             <div key={i} className="mt-2 flex items-center gap-2">
-              <input type="text" value={c.name} onChange={(e) => updCustomColor(i, "name", e.target.value)} placeholder="Renk adı" className="w-32 rounded-lg border border-paper/20 bg-transparent px-3 py-1.5 text-xs text-paper outline-none focus:border-cyan" />
-              <input type="color" value={c.hex} onChange={(e) => updCustomColor(i, "hex", e.target.value)} className="size-8 cursor-pointer rounded border border-paper/20 bg-transparent" />
-              <button type="button" onClick={() => setCustomColors(customColors.filter((_, idx) => idx !== i))} className="text-crim text-xs">✕</button>
+              <input
+                type="text"
+                value={c.name}
+                onChange={(e) => updCustomColor(i, "name", e.target.value)}
+                placeholder="Renk adı"
+                className="w-32 rounded-lg border border-paper/20 bg-transparent px-3 py-1.5 text-xs text-paper outline-none focus:border-cyan"
+              />
+              <input
+                type="color"
+                value={c.hex}
+                onChange={(e) => updCustomColor(i, "hex", e.target.value)}
+                className="size-8 cursor-pointer rounded border border-paper/20 bg-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setCustomColors(customColors.filter((_, idx) => idx !== i))}
+                className="text-crim text-xs"
+              >
+                ✕
+              </button>
             </div>
           ))}
-          <button type="button" onClick={addCustomColor} className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper">+ Özel renk ekle</button>
+          <button
+            type="button"
+            onClick={addCustomColor}
+            className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper"
+          >
+            + Özel renk ekle
+          </button>
         </div>
 
         {/* Sizes + Stock */}
         <div>
-          <label className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-paper/50">Bedenler ve Stok Adetleri</label>
+          <label className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-paper/50">
+            Bedenler ve Stok Adetleri
+          </label>
           <div className="flex flex-wrap gap-2">
             {ALL_SIZES.map((size) => {
               const sel = selectedSizes.includes(size);
               return (
-                <div key={size} className={`rounded-lg border p-2 transition ${sel ? "border-cyan bg-cyan/5" : "border-paper/20 opacity-60"}`}>
-                  <label className="flex cursor-pointer items-center gap-2 text-xs"><input type="checkbox" checked={sel} onChange={() => toggleSize(size)} className="accent-crim" />{size}</label>
-                  {sel && <input type="number" min="0" value={stockPerSize[size] || "0"} onChange={(e) => setStockPerSize((s) => ({ ...s, [size]: e.target.value }))} className="mt-1 w-full rounded border border-paper/20 bg-transparent px-2 py-1 text-xs text-center text-paper outline-none focus:border-cyan" placeholder="Adet" />}
+                <div
+                  key={size}
+                  className={`rounded-lg border p-2 transition ${
+                    sel ? "border-cyan bg-cyan/5" : "border-paper/20 opacity-60"
+                  }`}
+                >
+                  <label className="flex cursor-pointer items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={sel}
+                      onChange={() => toggleSize(size)}
+                      className="accent-crim"
+                    />
+                    {size}
+                  </label>
+                  {sel && (
+                    <input
+                      type="number"
+                      min="0"
+                      value={stockPerSize[size] || "0"}
+                      onChange={(e) =>
+                        setStockPerSize((s) => ({ ...s, [size]: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded border border-paper/20 bg-transparent px-2 py-1 text-xs text-center text-paper outline-none focus:border-cyan"
+                      placeholder="Adet"
+                    />
+                  )}
                 </div>
               );
             })}
@@ -176,15 +495,32 @@ function NewProductPage() {
         {/* Discount */}
         <div className="rounded-lg border border-crim/30 bg-crim/5 p-4">
           <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" checked={discountEnabled} onChange={() => setDiscountEnabled(!discountEnabled)} className="accent-crim" />
+            <input
+              type="checkbox"
+              checked={discountEnabled}
+              onChange={() => setDiscountEnabled(!discountEnabled)}
+              className="accent-crim"
+            />
             <span className="text-[11px] uppercase tracking-[0.18em] text-crim">İndirim uygula</span>
           </label>
           {discountEnabled && (
             <div className="mt-3 flex items-center gap-3 flex-wrap">
-              <select value={discountType} onChange={(e) => setDiscountType(e.target.value as "percentage" | "fixed")} className="rounded-lg border border-paper/20 bg-ink px-3 py-2 text-sm text-paper outline-none focus:border-cyan">
-                <option value="percentage">% Yüzde</option><option value="fixed">₺ Sabit</option>
+              <select
+                value={discountType}
+                onChange={(e) => setDiscountType(e.target.value as "percentage" | "fixed")}
+                className="rounded-lg border border-paper/20 bg-ink px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+              >
+                <option value="percentage">% Yüzde</option>
+                <option value="fixed">₺ Sabit</option>
               </select>
-              <input type="number" min="0" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder={discountType === "percentage" ? "İndirim %" : "İndirim ₺"} className="w-32 rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan" />
+              <input
+                type="number"
+                min="0"
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                placeholder={discountType === "percentage" ? "İndirim %" : "İndirim ₺"}
+                className="w-32 rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+              />
               {discPrice !== null && (
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-paper/40 line-through">₺{Number(price)}</span>
@@ -196,8 +532,20 @@ function NewProductPage() {
         </div>
 
         <div className="flex gap-3 pt-4">
-          <button type="submit" disabled={saving} className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50">{saving ? "Kaydediliyor..." : "Ürünü kaydet"}</button>
-          <button type="button" onClick={() => router.navigate({ to: "/admin/dashboard" })} className="rounded-full border border-paper/20 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper">İptal</button>
+          <button
+            type="submit"
+            disabled={saving || uploading}
+            className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50"
+          >
+            {saving ? "Kaydediliyor..." : "Ürünü kaydet"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.navigate({ to: "/admin/dashboard" })}
+            className="rounded-full border border-paper/20 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper"
+          >
+            İptal
+          </button>
         </div>
       </form>
     </div>
