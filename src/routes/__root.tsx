@@ -309,6 +309,7 @@ function Footer() {
       <div className="mt-6 flex justify-center gap-6 text-[11px] uppercase tracking-[0.18em] text-paper/50">
         <Link to="/shop" className="transition hover:text-paper">Mağaza</Link>
         <Link to="/kulup" className="transition hover:text-paper">Kulüp</Link>
+        <Link to="/kargo-takip" className="transition hover:text-paper font-semibold text-cyan">Kargo Takip</Link>
         <Link to="/iletisim" className="transition hover:text-paper">İletişim</Link>
       </div>
     </footer>

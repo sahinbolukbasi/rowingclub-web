@@ -232,8 +232,6 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       Key: { id },
       UpdateExpression: `SET ${updateExpr.join(", ")}`,
       ExpressionAttributeNames: exprAttrNames,
-      ExpressionAttributeValues: exprAttrValues,
-      ReturnValues: "ALL_NEW",
     }));
     return jsonResponse(result.Attributes);
   }
@@ -245,11 +243,13 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse({ success: true });
   }
 
-  // ─── Orders ────────────────────────────────────
+  // ─── Orders ─────────────────────────────────────
   if (path === "/api/orders" && request.method === "POST") {
     const body = await request.json() as any;
+    // Clean, unique numeric order ID (e.g. 6 to 7 digits)
+    const numericId = `${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
     const order = {
-      id: genId("ord"),
+      id: numericId,
       ...body,
       status: "pending",
       statusHistory: [{ status: "pending", date: new Date().toISOString() }],
@@ -260,32 +260,79 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   }
 
   if (path.startsWith("/api/orders/") && request.method === "GET") {
-    const id = path.split("/").pop();
-    const result = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
-    if (!result.Item) return jsonResponse({ error: "Not found" }, 404);
-    const o = result.Item;
-    return jsonResponse({ ...o, items: typeof o.items === "string" ? JSON.parse(o.items) : o.items });
+    const id = path.split("/").pop() || "";
+    try {
+      const result = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
+      if (result.Item) {
+        const o = result.Item;
+        return jsonResponse({ ...o, items: typeof o.items === "string" ? JSON.parse(o.items) : o.items });
+      }
+    } catch (e) {
+      console.warn("GetCommand error:", e);
+    }
+
+    // Fallback: Scan by numeric id or email
+    try {
+      const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
+      const found = (scanRes.Items ?? []).find(
+        (o: any) =>
+          String(o.id) === String(id) ||
+          o.customerEmail?.toLowerCase().trim() === id.toLowerCase().trim()
+      );
+      if (found) {
+        return jsonResponse({
+          ...found,
+          items: typeof found.items === "string" ? JSON.parse(found.items) : found.items,
+        });
+      }
+    } catch (e) {
+      console.warn("ScanCommand error:", e);
+    }
+
+    return jsonResponse({ error: "Sipariş bulunamadı" }, 404);
   }
 
   if (path.startsWith("/api/orders/") && request.method === "PUT") {
-    const id = path.split("/").pop();
+    const id = path.split("/").pop() || "";
     const body = await request.json() as any;
     const newStatus = body.status;
-    const updateExpr = ["#status = :status"];
-    const exprAttrValues: Record<string, unknown> = { ":status": newStatus };
-    const exprAttrNames: Record<string, string> = { "#status": "status" };
+    const updateExpr: string[] = [];
+    const exprAttrValues: Record<string, unknown> = {};
+    const exprAttrNames: Record<string, string> = {};
 
-    // Append to statusHistory
-    const now = new Date().toISOString();
-    updateExpr.push("#history = list_append(if_not_exists(#history, :empty), :newEntry)");
-    exprAttrNames["#history"] = "statusHistory";
-    exprAttrValues[":empty"] = [];
-    exprAttrValues[":newEntry"] = [{ status: newStatus, date: now }];
+    if (newStatus) {
+      updateExpr.push("#status = :status");
+      exprAttrNames["#status"] = "status";
+      exprAttrValues[":status"] = newStatus;
 
-    if (body.paymentId) {
+      // Append to statusHistory
+      const now = new Date().toISOString();
+      updateExpr.push("#history = list_append(if_not_exists(#history, :empty), :newEntry)");
+      exprAttrNames["#history"] = "statusHistory";
+      exprAttrValues[":empty"] = [];
+      exprAttrValues[":newEntry"] = [{ status: newStatus, date: now }];
+    }
+
+    if (body.paymentId !== undefined) {
       updateExpr.push("#paymentId = :paymentId");
       exprAttrNames["#paymentId"] = "paymentId";
       exprAttrValues[":paymentId"] = body.paymentId;
+    }
+
+    if (body.cargoTrackingCode !== undefined) {
+      updateExpr.push("#cargoTrackingCode = :cargoTrackingCode");
+      exprAttrNames["#cargoTrackingCode"] = "cargoTrackingCode";
+      exprAttrValues[":cargoTrackingCode"] = body.cargoTrackingCode;
+    }
+
+    if (body.cargoCarrier !== undefined) {
+      updateExpr.push("#cargoCarrier = :cargoCarrier");
+      exprAttrNames["#cargoCarrier"] = "cargoCarrier";
+      exprAttrValues[":cargoCarrier"] = body.cargoCarrier;
+    }
+
+    if (updateExpr.length === 0) {
+      return jsonResponse({ error: "Güncellenecek alan belirtilmedi" }, 400);
     }
 
     const result = await _doc.send(new UpdateCommand({

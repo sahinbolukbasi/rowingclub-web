@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as IletisimRouteImport } from './routes/iletisim'
+import { Route as KargoTakipRouteImport } from './routes/kargo-takip'
 import { Route as KulupRouteImport } from './routes/kulup'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -44,6 +45,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const IletisimRoute = IletisimRouteImport.update({
   id: '/iletisim',
   path: '/iletisim',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KargoTakipRoute = KargoTakipRouteImport.update({
+  id: '/kargo-takip',
+  path: '/kargo-takip',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KulupRoute = KulupRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/iletisim': typeof IletisimRoute
+  '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
   '/product/': typeof ProductRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/iletisim': typeof IletisimRoute
+  '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
   '/product': typeof ProductRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/iletisim': typeof IletisimRoute
+  '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
   '/product/': typeof ProductRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/'
     | '/checkout'
     | '/iletisim'
+    | '/kargo-takip'
     | '/kulup'
     | '/shop'
     | '/product/'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/'
     | '/checkout'
     | '/iletisim'
+    | '/kargo-takip'
     | '/kulup'
     | '/shop'
     | '/product'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/'
     | '/checkout'
     | '/iletisim'
+    | '/kargo-takip'
     | '/kulup'
     | '/shop'
     | '/product/'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CheckoutRoute: typeof CheckoutRoute
   IletisimRoute: typeof IletisimRoute
+  KargoTakipRoute: typeof KargoTakipRoute
   KulupRoute: typeof KulupRoute
   ShopRoute: typeof ShopRoute
   ProductRoute: typeof ProductRoute
@@ -324,6 +337,13 @@ declare module '@tanstack/react-router' {
       path: '/iletisim'
       fullPath: '/iletisim'
       preLoaderRoute: typeof IletisimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kargo-takip': {
+      id: '/kargo-takip'
+      path: '/kargo-takip'
+      fullPath: '/kargo-takip'
+      preLoaderRoute: typeof KargoTakipRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kulup': {
@@ -459,6 +479,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CheckoutRoute: CheckoutRoute,
   IletisimRoute: IletisimRoute,
+  KargoTakipRoute: KargoTakipRoute,
   KulupRoute: KulupRoute,
   ShopRoute: ShopRoute,
   ProductRoute: ProductRoute,
