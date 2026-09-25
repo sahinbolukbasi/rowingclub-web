@@ -590,29 +590,41 @@ function FloatingPromoBanner() {
 
   return (
     <>
-      {/* Toast popup when copied */}
+      {/* Toast notification when copied */}
       {copiedCode && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-paper/20 bg-ink px-6 py-3 shadow-2xl backdrop-blur-md">
+        <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-full border border-cyan/40 bg-ink/95 px-6 py-3 shadow-2xl backdrop-blur-md animate-bounce">
           <p className="text-xs uppercase tracking-[0.18em] text-cyan flex items-center gap-2 font-bold">
             <span>✨ İndirim Kodu Kopyalandı:</span>
-            <span className="rounded bg-crim px-2 py-0.5 text-paper font-mono">{copiedCode}</span>
+            <span className="rounded bg-crim px-2.5 py-0.5 text-paper font-mono text-sm tracking-wider">
+              {copiedCode}
+            </span>
           </p>
         </div>
       )}
 
-      {/* Floating Side Badge on the right */}
-      <div className="fixed right-0 top-1/2 z-40 -translate-y-1/2 flex flex-col items-end">
+      {/* Floating Small Diagonal Badge expanding on hover */}
+      <div className="fixed right-0 top-1/3 z-40 flex items-center">
         <button
           onClick={handleCopy}
-          title={`İndirim kodunu kopyalamak için tıklayın: ${mainCoupon.code}`}
-          className="group relative flex items-center gap-2 rounded-l-2xl border-l-2 border-y-2 border-paper/20 bg-[#ff5500] px-3.5 py-4 text-ink shadow-2xl transition-all duration-300 hover:-translate-x-1.5 hover:bg-cyan"
+          title={`İndirim Kodu: ${mainCoupon.code} — Tıklayarak Kopyala`}
+          className="group relative flex items-center gap-3 rounded-l-2xl border-l-2 border-y-2 border-paper/20 bg-gradient-to-l from-orange-600 via-amber-500 to-crim px-3.5 py-3 text-ink shadow-2xl transition-all duration-300 ease-out hover:-translate-x-3 hover:scale-110 hover:shadow-orange-500/40 cursor-pointer"
         >
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-ink/70">KAMPANYA</span>
-            <span className="font-display text-base uppercase tracking-wider text-ink">{labelText}</span>
-            <span className="mt-1.5 rounded-full bg-ink/20 px-2 py-0.5 font-mono text-[9px] font-bold tracking-widest text-ink group-hover:bg-ink group-hover:text-paper">
-              {copiedCode ? "KOPYALANDI ✓" : "KODU KOPYALA 📋"}
+          {/* Small Diagonal Header Tag */}
+          <div className="-rotate-12 rounded bg-ink px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-amber-400 border border-amber-400/50 shadow-sm transition-transform duration-300 group-hover:rotate-0 group-hover:scale-110">
+            🏷️ FIRSAT
+          </div>
+
+          <div className="flex flex-col text-left">
+            <span className="font-display text-xs uppercase tracking-wider text-ink font-black transition-colors group-hover:text-paper">
+              {labelText}
             </span>
+            <span className="text-[9px] font-mono font-bold tracking-wider text-ink/80 transition-colors group-hover:text-cyan">
+              {copiedCode ? "KOD KOPYALANDI ✓" : `KOD: ${mainCoupon.code} (TIKLA KOPYALA)`}
+            </span>
+          </div>
+
+          <div className="flex size-7 items-center justify-center rounded-full bg-ink/20 text-ink transition-transform duration-300 group-hover:scale-125 group-hover:bg-ink group-hover:text-paper">
+            <span className="text-xs font-bold">{copiedCode ? "✓" : "📋"}</span>
           </div>
         </button>
       </div>
