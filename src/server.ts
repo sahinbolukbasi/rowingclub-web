@@ -55,19 +55,29 @@ const INITIAL_COUPONS = [
 
 async function getAllCoupons(): Promise<any[]> {
   try {
-    const res = await _doc.send(new ScanCommand({ TableName: COUPONS_TABLE }));
-    const items = res.Items ?? [];
-    if (items.length === 0) {
-      for (const item of INITIAL_COUPONS) {
-        await _doc.send(new PutCommand({ TableName: COUPONS_TABLE, Item: item })).catch(() => {});
-      }
-      return INITIAL_COUPONS;
+    const res = await _doc.send(
+      new GetCommand({ TableName: CONTENT_TABLE, Key: { id: "site-coupons" } })
+    );
+    if (res.Item && Array.isArray(res.Item.coupons)) {
+      return res.Item.coupons;
     }
-    return items;
   } catch (e) {
-    console.warn("Coupons scan error:", e);
-    return INITIAL_COUPONS;
+    console.warn("Get coupons from CONTENT_TABLE error:", e);
   }
+  return INITIAL_COUPONS;
+}
+
+async function saveAllCoupons(coupons: any[]): Promise<void> {
+  await _doc.send(
+    new PutCommand({
+      TableName: CONTENT_TABLE,
+      Item: {
+        id: "site-coupons",
+        coupons,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  );
 }
 
 const DEFAULT_CONTENT = {
@@ -448,7 +458,7 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       .trim();
 
     const coupon = {
-      id: genId("coup"),
+      id: body.id || genId("coup"),
       code: couponCode,
       type: body.type || "percentage",
       value: Number(body.value) || 10,
@@ -465,7 +475,14 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     };
 
     try {
-      await _doc.send(new PutCommand({ TableName: COUPONS_TABLE, Item: coupon }));
+      const list = await getAllCoupons();
+      const existingIdx = list.findIndex((c: any) => String(c.id) === String(coupon.id));
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...coupon };
+      } else {
+        list.push(coupon);
+      }
+      await saveAllCoupons(list);
       return jsonResponse(coupon);
     } catch (e: any) {
       console.error("Put coupon error:", e);
@@ -479,19 +496,28 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const body = (await request.json()) as any;
 
     try {
-      const allCoupons = await getAllCoupons();
-      const existingItem = allCoupons.find((c: any) => String(c.id) === String(id)) || {};
+      const list = await getAllCoupons();
+      const index = list.findIndex((c: any) => String(c.id) === String(id));
+      let updatedCoupon: any = null;
 
-      const updatedCoupon = {
-        ...existingItem,
-        ...body,
-        id,
-        updatedAt: new Date().toISOString(),
-      };
+      if (index >= 0) {
+        updatedCoupon = {
+          ...list[index],
+          ...body,
+          id,
+          updatedAt: new Date().toISOString(),
+        };
+        list[index] = updatedCoupon;
+      } else {
+        updatedCoupon = {
+          ...body,
+          id,
+          updatedAt: new Date().toISOString(),
+        };
+        list.push(updatedCoupon);
+      }
 
-      await _doc.send(
-        new PutCommand({ TableName: COUPONS_TABLE, Item: updatedCoupon })
-      );
+      await saveAllCoupons(list);
       return jsonResponse(updatedCoupon);
     } catch (e: any) {
       console.error("Update coupon error:", e);
@@ -503,7 +529,9 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
     const id = path.split("/").pop();
     try {
-      await _doc.send(new DeleteCommand({ TableName: COUPONS_TABLE, Key: { id } }));
+      const list = await getAllCoupons();
+      const filtered = list.filter((c: any) => String(c.id) !== String(id));
+      await saveAllCoupons(filtered);
       return jsonResponse({ success: true });
     } catch (e: any) {
       console.error("Delete coupon error:", e);
