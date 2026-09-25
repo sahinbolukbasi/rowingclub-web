@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import boathouseImg from "@/assets/story-boathouse.jpg";
 import flatlayImg from "@/assets/story-flatlay.jpg";
 
@@ -22,31 +23,36 @@ export const Route = createFileRoute("/kulup")({
 });
 
 function KulupPage() {
+  const [content, setContent] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then(setContent)
+      .catch(() => {});
+  }, []);
+
+  const imageSrc = content?.clubImage || boathouseImg;
+
   return (
     <>
       <section className="px-6 py-12 lg:px-10">
         <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-cyan">
           — Kulüp
         </p>
-        <h1 className="font-display text-4xl uppercase leading-[0.95] md:text-7xl">
-          Bir kulüp,
-          <br />
-          bir deniz,
-          <br />
-          bir giysi.
+        <h1 className="font-display text-4xl uppercase leading-[0.95] md:text-7xl whitespace-pre-line">
+          {content?.clubTitle || "Bir kulüp,\nbir deniz,\nbir giysi."}
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-paper/70">
-          Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım
-          kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır.
-          1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı
-          disiplini suya taşıyoruz.
+          {content?.clubDescription ||
+            "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır. 1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı disiplini suya taşıyoruz."}
         </p>
       </section>
 
       <section className="px-6 py-12 lg:px-10">
         <div className="overflow-hidden rounded-lg">
           <img
-            src={boathouseImg}
+            src={imageSrc}
             alt="Boathouse at dawn"
             loading="lazy"
             className="aspect-[16/9] w-full object-cover"

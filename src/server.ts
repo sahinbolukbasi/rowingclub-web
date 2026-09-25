@@ -19,6 +19,32 @@ const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE ?? "kurek-products";
 const ORDERS_TABLE = process.env.ORDERS_TABLE ?? "kurek-orders";
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE ?? "kurek-contacts";
 const USERS_TABLE = process.env.USERS_TABLE ?? "kurek-users";
+const CONTENT_TABLE = process.env.CONTENT_TABLE ?? "kurek-content";
+
+const DEFAULT_CONTENT = {
+  id: "site-content",
+  heroTitle: "Kürek\nKulübü",
+  heroSubtitle: "Denizi giyin. Her tişört, bir sabah küreği ve tuzlu rüzgar için tasarlandı.",
+  heroButtonText: "Mağazaya gir →",
+  heroImage: "",
+  featuredHeading: "Öne çıkan tişörtler",
+  featuredSubtitle: "— Öne çıkanlar",
+  storyHeading: "Bir kulüp,\nbir deniz,\nbir giysi.",
+  storyDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır.",
+  storyButtonText: "Hikâyemiz →",
+  storyImage: "",
+  clubTitle: "Bir kulüp,\nbir deniz,\nbir giysi.",
+  clubDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır. 1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı disiplini suya taşıyoruz.",
+  clubImage: "",
+  contactTitle: "Bize ulaş.",
+  contactDescription: "Sipariş, beden rehberi, kulüp üyeliği veya toplu sipariş — ne isterseniz yazın. Cevap aynı gün içinde, en geç ertesi sabah küreğinden önce.",
+  contactEmail: "merhaba@kurekkulubu.com",
+  contactPhone: "+90 212 000 00 00",
+  contactAddress: "Boğaz İskelesi 4, İstanbul",
+  contactHours: "Pzt–Cmt · 09:00–18:00",
+  announcement: "Türkiye genelinde ücretsiz kargo · İstanbul içi ertesi gün teslimat",
+  footerText: "İstanbul Boğazı · Kürek Kulübü © 2026",
+};
 
 const _client = new DynamoDBClient({ region: REGION });
 const _doc = DynamoDBDocumentClient.from(_client);
@@ -448,6 +474,45 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       console.error("Image upload error:", error);
       return jsonResponse({ error: "Resim yükleme hatası: " + String(error) }, 500);
     }
+  }
+
+  // ─── Site Content (Texts & Banners) ──────────────
+  if (path === "/api/content" && request.method === "GET") {
+    try {
+      const result = await _doc.send(new GetCommand({ TableName: CONTENT_TABLE, Key: { id: "site-content" } }));
+      if (result.Item) {
+        return jsonResponse({ ...DEFAULT_CONTENT, ...result.Item });
+      }
+    } catch (e) {
+      console.warn("Could not get content from table:", e);
+    }
+    return jsonResponse(DEFAULT_CONTENT);
+  }
+
+  if (path === "/api/admin/content" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    try {
+      const result = await _doc.send(new GetCommand({ TableName: CONTENT_TABLE, Key: { id: "site-content" } }));
+      if (result.Item) {
+        return jsonResponse({ ...DEFAULT_CONTENT, ...result.Item });
+      }
+    } catch (e) {
+      console.warn("Could not get content from table:", e);
+    }
+    return jsonResponse(DEFAULT_CONTENT);
+  }
+
+  if (path === "/api/admin/content" && (request.method === "PUT" || request.method === "POST")) {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json() as any;
+    const content = {
+      ...DEFAULT_CONTENT,
+      ...body,
+      id: "site-content",
+      updatedAt: new Date().toISOString(),
+    };
+    await _doc.send(new PutCommand({ TableName: CONTENT_TABLE, Item: content }));
+    return jsonResponse(content);
   }
 
   // ─── Config / sizes+colors ─────────────────────

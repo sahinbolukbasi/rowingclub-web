@@ -48,40 +48,62 @@ function ProductPage() {
   const prevImage = () => setImgIndex((i) => (i - 1 + images.length) % images.length);
   const nextImage = () => setImgIndex((i) => (i + 1) % images.length);
 
-  // Pad images to always show 3 thumbnails (repeat or placeholder)
-  const displayImages = images.length >= 3 ? images : [...images, ...images, ...images].slice(0, 3);
-  const thumbStart = Math.min(imgIndex, Math.max(0, displayImages.length - THUMB_COUNT));
-  const thumbImages = displayImages.slice(thumbStart, thumbStart + THUMB_COUNT);
-
   return (
     <section className="px-6 py-12 lg:px-10">
-      <div className="mb-8"><Link to="/shop" className="text-[11px] uppercase tracking-[0.22em] text-paper/50 transition hover:text-paper">← Mağazaya dön</Link></div>
-      <div className="grid gap-10 lg:grid-cols-2">
+      <div className="mb-8">
+        <Link to="/shop" className="text-[11px] uppercase tracking-[0.22em] text-paper/50 transition hover:text-paper">
+          ← Mağazaya dön
+        </Link>
+      </div>
+      <div className="grid gap-10 lg:grid-cols-2 items-start">
         <div className="flex flex-col">
-          <div className="relative overflow-hidden rounded-lg bg-teal/20 flex items-center justify-center group" style={{ maxHeight: '70vh', minHeight: '300px' }}>
-            <img src={images[imgIndex] || ""} alt={product.name} className="w-full h-full object-contain" style={{ maxHeight: '65vh' }} />
+          {/* Main Large Image Container with Fixed Frame Aspect Ratio */}
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-paper/15 bg-teal/20 flex items-center justify-center group shadow-xl">
+            <img
+              src={images[imgIndex] || product.image || ""}
+              alt={product.name}
+              className="h-full w-full object-cover transition-all duration-300"
+            />
             {images.length > 1 && (
               <>
-                <button onClick={prevImage} className="absolute left-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/60 text-paper opacity-0 group-hover:opacity-100 transition-opacity hover:bg-ink/80" aria-label="Önceki">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/70 text-paper opacity-0 group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg"
+                  aria-label="Önceki Görsel"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
                 </button>
-                <button onClick={nextImage} className="absolute right-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/60 text-paper opacity-0 group-hover:opacity-100 transition-opacity hover:bg-ink/80" aria-label="Sonraki">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/70 text-paper opacity-0 group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg"
+                  aria-label="Sonraki Görsel"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </button>
               </>
             )}
           </div>
-          {/* Always show exactly 3 thumbnails */}
+
+          {/* Render ONLY the exact uploaded thumbnails */}
           {images.length > 1 && (
-            <div className="mt-3 flex justify-center gap-2">
-              {thumbImages.map((img: string, i: number) => {
-                const actualIndex = (thumbStart + i) % images.length;
-                return (
-                  <button key={i} onClick={() => setImgIndex(actualIndex)} className={`size-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${actualIndex === imgIndex ? "border-crim ring-1 ring-crim/30" : "border-transparent opacity-50 hover:opacity-100"}`}>
-                    <img src={img} alt="" className="h-full w-full object-cover" />
-                  </button>
-                );
-              })}
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              {images.map((img: string, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => setImgIndex(idx)}
+                  className={`size-16 flex-shrink-0 overflow-hidden rounded-xl border-2 transition shadow-sm ${
+                    idx === imgIndex
+                      ? "border-crim ring-2 ring-crim/30 scale-105"
+                      : "border-paper/20 opacity-60 hover:opacity-100 hover:border-paper/50"
+                  }`}
+                >
+                  <img src={img} alt={`Görsel ${idx + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
             </div>
           )}
         </div>

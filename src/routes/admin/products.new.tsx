@@ -52,8 +52,18 @@ function NewProductPage() {
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [isClosed, setIsClosed] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const setAsCoverImage = (index: number) => {
+    setImages((prev) => {
+      const list = [...prev];
+      const [selected] = list.splice(index, 1);
+      if (selected) list.unshift(selected);
+      return list;
+    });
+  };
 
   const toggleColor = (name: string) =>
     setSelectedColors((p) => (p.includes(name) ? p.filter((c) => c !== name) : [...p, name]));
@@ -151,6 +161,7 @@ function NewProductPage() {
         sizes: selectedSizes,
         stockPerSize: sps,
         isClosed: isClosed,
+        isFeatured: isFeatured,
         discount:
           discountEnabled && Number(discountValue) > 0
             ? { type: discountType, value: Number(discountValue) }
@@ -215,6 +226,33 @@ function NewProductPage() {
               checked={isClosed}
               onChange={(e) => setIsClosed(e.target.checked)}
               className="size-6 accent-crim cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {/* Ana Sayfada Ön Plana Çıkar */}
+        <div className="rounded-xl border border-paper/20 bg-ink/40 p-5">
+          <label className="flex cursor-pointer items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-base uppercase tracking-wider text-paper">
+                  ⭐ Ana Sayfada Ön Plana Çıkar
+                </span>
+                {isFeatured && (
+                  <span className="rounded-full bg-cyan/20 border border-cyan/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan">
+                    ÖNE ÇIKAN
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-paper/60 mt-1">
+                İşaretlendiğinde bu ürün ana sayfa vitrinindeki "Öne çıkan tişörtler" bölümünde ilk sırada gösterilir.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={isFeatured}
+              onChange={(e) => setIsFeatured(e.target.checked)}
+              className="size-6 accent-cyan cursor-pointer"
             />
           </label>
         </div>
@@ -339,23 +377,43 @@ function NewProductPage() {
               <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 mb-2">
                 Yüklü Görseller ({images.filter((i) => i.trim()).length})
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {images
                   .filter((i) => i.trim())
                   .map((img, idx) => (
                     <div
                       key={idx}
-                      className="group relative aspect-square rounded-lg border border-paper/20 overflow-hidden bg-ink/60 shadow"
+                      className={`group relative aspect-square rounded-xl border overflow-hidden bg-ink/60 shadow transition ${
+                        idx === 0
+                          ? "border-amber-400 ring-2 ring-amber-400/30"
+                          : "border-paper/20 hover:border-paper/40"
+                      }`}
                     >
                       <img src={img} alt="Ürün" className="w-full h-full object-cover" />
+                      
+                      {/* Top actions: badge or set cover button, and delete */}
                       <button
                         type="button"
                         onClick={() => remImage(idx)}
-                        className="absolute top-1 right-1 size-6 rounded-full bg-crim text-ink flex items-center justify-center text-xs font-bold shadow hover:bg-paper transition"
+                        className="absolute top-2 right-2 size-6 rounded-full bg-crim text-ink flex items-center justify-center text-xs font-bold shadow hover:bg-paper transition z-10"
                         title="Sil"
                       >
                         ✕
                       </button>
+
+                      {idx === 0 ? (
+                        <div className="absolute bottom-2 left-2 right-2 rounded-md bg-amber-400/95 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-ink shadow">
+                          ★ Ön Plan Resmi
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAsCoverImage(idx)}
+                          className="absolute bottom-2 left-2 right-2 rounded-md bg-ink/85 border border-paper/20 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-paper hover:bg-cyan hover:text-ink transition shadow"
+                        >
+                          Ön Plan Yap
+                        </button>
+                      )}
                     </div>
                   ))}
               </div>

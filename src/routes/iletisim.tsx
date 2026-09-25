@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/iletisim")({
   head: () => ({ meta: [{ title: "İletişim — Kürek Kulübü" }, { name: "description", content: "Kürek Kulübü ile iletişim. Sipariş, bilgi, kulüp üyeliği." }, { property: "og:title", content: "İletişim — Kürek Kulübü" }, { property: "og:description", content: "Kürek Kulübü ile iletişim. Sipariş, bilgi, kulüp üyeliği." }] }),
@@ -7,12 +7,20 @@ export const Route = createFileRoute("/iletisim")({
 });
 
 function IletisimPage() {
+  const [content, setContent] = useState<any>(null);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("Sipariş");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then(setContent)
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,11 +41,24 @@ function IletisimPage() {
       <div className="grid gap-12 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-cyan">— İletişim</p>
-          <h1 className="font-display text-4xl uppercase leading-[0.95] md:text-7xl">Bize ulaş.</h1>
-          <p className="mt-6 max-w-md leading-relaxed text-paper/70">Sipariş, beden rehberi, kulüp üyeliği veya toplu sipariş — ne isterseniz yazın. Cevap aynı gün içinde, en geç ertesi sabah küreğinden önce.</p>
+          <h1 className="font-display text-4xl uppercase leading-[0.95] md:text-7xl">
+            {content?.contactTitle || "Bize ulaş."}
+          </h1>
+          <p className="mt-6 max-w-md leading-relaxed text-paper/70">
+            {content?.contactDescription ||
+              "Sipariş, beden rehberi, kulüp üyeliği veya toplu sipariş — ne isterseniz yazın. Cevap aynı gün içinde, en geç ertesi sabah küreğinden önce."}
+          </p>
           <div className="mt-10 space-y-5">
-            {[{ l: "E-posta", v: "merhaba@kurekkulubu.com" }, { l: "Telefon", v: "+90 212 000 00 00" }, { l: "Atölye", v: "Boğaz İskelesi 4, İstanbul" }, { l: "Saatler", v: "Pzt–Cmt · 09:00–18:00" }].map((row) => (
-              <div key={row.l} className="border-b border-paper/10 pb-4"><p className="text-[11px] uppercase tracking-[0.22em] text-paper/50">{row.l}</p><p className="mt-1 text-lg text-paper">{row.v}</p></div>
+            {[
+              { l: "E-posta", v: content?.contactEmail || "merhaba@kurekkulubu.com" },
+              { l: "Telefon", v: content?.contactPhone || "+90 212 000 00 00" },
+              { l: "Atölye", v: content?.contactAddress || "Boğaz İskelesi 4, İstanbul" },
+              { l: "Saatler", v: content?.contactHours || "Pzt–Cmt · 09:00–18:00" },
+            ].map((row) => (
+              <div key={row.l} className="border-b border-paper/10 pb-4">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-paper/50">{row.l}</p>
+                <p className="mt-1 text-lg text-paper">{row.v}</p>
+              </div>
             ))}
           </div>
         </div>

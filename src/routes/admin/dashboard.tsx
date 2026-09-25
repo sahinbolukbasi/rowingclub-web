@@ -88,9 +88,7 @@ function useAdminAuth() {
     const token = localStorage.getItem("admin-token");
     const expires = Number(localStorage.getItem("admin_session_expires") || "0");
 
-    // Session check: valid token and either not expired or within 30 days
     if (token === ADMIN_TOKEN && (!expires || Date.now() < expires)) {
-      // Auto-extend session so admin panel stays open without annoying logouts
       localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
       setAuthed(true);
     } else {
@@ -111,9 +109,37 @@ function AdminDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [tab, setTab] = useState<"products" | "orders" | "contacts" | "users">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "contacts" | "users" | "content">("products");
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
+
+  // Site Content State
+  const [siteContent, setSiteContent] = useState<any>({
+    heroTitle: "Kürek\nKulübü",
+    heroSubtitle: "Denizi giyin. Her tişört, bir sabah küreği ve tuzlu rüzgar için tasarlandı.",
+    heroButtonText: "Mağazaya gir →",
+    heroImage: "",
+    featuredHeading: "Öne çıkan tişörtler",
+    featuredSubtitle: "— Öne çıkanlar",
+    storyHeading: "Bir kulüp,\nbir deniz,\nbir giysi.",
+    storyDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır.",
+    storyButtonText: "Hikâyemiz →",
+    storyImage: "",
+    clubTitle: "Bir kulüp,\nbir deniz,\nbir giysi.",
+    clubDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır. 1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı disiplini suya taşıyoruz.",
+    clubImage: "",
+    contactTitle: "Bize ulaş.",
+    contactDescription: "Sipariş, beden rehberi, kulüp üyeliği veya toplu sipariş — ne isterseniz yazın. Cevap aynı gün içinde, en geç ertesi sabah küreğinden önce.",
+    contactEmail: "merhaba@kurekkulubu.com",
+    contactPhone: "+90 212 000 00 00",
+    contactAddress: "Boğaz İskelesi 4, İstanbul",
+    contactHours: "Pzt–Cmt · 09:00–18:00",
+    announcement: "Türkiye genelinde ücretsiz kargo · İstanbul içi ertesi gün teslimat",
+    footerText: "İstanbul Boğazı · Kürek Kulübü © 2026",
+  });
+  const [savingContent, setSavingContent] = useState(false);
+  const [contentSuccess, setContentSuccess] = useState(false);
+  const [uploadingImageKey, setUploadingImageKey] = useState<string | null>(null);
 
   // User management form state
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -134,6 +160,12 @@ function AdminDashboard() {
     apiGet("/orders").then(setOrders).catch((e) => setError(e.message));
     apiGet("/contacts").then(setContacts).catch((e) => setError(e.message));
     apiGet("/users").then(setUsers).catch((e) => console.warn("Users error:", e));
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.id) setSiteContent((prev: any) => ({ ...prev, ...data }));
+      })
+      .catch((e) => console.warn("Content load error:", e));
   };
 
   useEffect(() => {
@@ -164,6 +196,56 @@ function AdminDashboard() {
     router.navigate({ to: "/admin" });
   };
 
+  // Save Site Content Texts & Banners
+  const handleSaveSiteContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingContent(true);
+    setContentSuccess(false);
+    try {
+      const res = await apiPut("/content", siteContent);
+      setSiteContent((prev: any) => ({ ...prev, ...res }));
+      setContentSuccess(true);
+      setTimeout(() => setContentSuccess(false), 4000);
+    } catch (err: any) {
+      alert("İçerik kaydedilirken hata oluştu: " + err.message);
+    }
+    setSavingContent(false);
+  };
+
+  // Upload Site Cover Images (Hero, Story, Club) directly to S3
+  const handleSiteImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImageKey(key);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const res = await fetch(`/api/admin/upload-image?t=${getToken()}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+            data: base64Data,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          setSiteContent((prev: any) => ({ ...prev, [key]: data.url }));
+        } else {
+          alert("Resim yükleme hatası: " + (data.error || "Bilinmeyen hata"));
+        }
+        setUploadingImageKey(null);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert("Hata: " + err.message);
+      setUploadingImageKey(null);
+    }
+  };
+
   // Toggle isClosed status for product directly from dashboard
   const handleToggleProductClosed = async (product: any) => {
     try {
@@ -174,6 +256,22 @@ function AdminDashboard() {
       });
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, isClosed: updatedClosed } : p))
+      );
+    } catch (e: any) {
+      alert("Hata: " + e.message);
+    }
+  };
+
+  // Toggle isFeatured status for product directly from dashboard
+  const handleToggleProductFeatured = async (product: any) => {
+    try {
+      const updatedFeatured = !product.isFeatured;
+      await apiPut(`/products/${product.id}`, {
+        ...product,
+        isFeatured: updatedFeatured,
+      });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, isFeatured: updatedFeatured } : p))
       );
     } catch (e: any) {
       alert("Hata: " + e.message);
@@ -208,7 +306,6 @@ function AdminDashboard() {
 
   // WhatsApp quick response
   const handleWhatsAppContact = (c: any) => {
-    // Check if phone number is in message or prompt admin
     let phone = "";
     const phoneMatch = c.message?.match(/(\+?\d{10,13})/);
     if (phoneMatch) {
@@ -386,6 +483,7 @@ Kürek Kulübü / rowingclub.co
             { id: "orders", label: "Siparişler", badge: orders.length },
             { id: "contacts", label: "Mesajlar", badge: pendingContacts > 0 ? `${pendingContacts} yeni` : contacts.length },
             { id: "users", label: "Kullanıcılar", badge: users.length },
+            { id: "content", label: "Site Yazıları & Görselleri", badge: "İçerik" },
           ] as const
         ).map((t) => (
           <button
@@ -400,7 +498,7 @@ Kürek Kulübü / rowingclub.co
             <span>{t.label}</span>
             <span
               className={`rounded-full px-2 py-0.5 text-[9px] ${
-                tab === t.id ? "bg-crim text-ink" : "bg-paper/10 text-paper/50"
+                tab === t.id ? "bg-crim text-ink font-bold" : "bg-paper/10 text-paper/50"
               }`}
             >
               {t.badge}
@@ -422,7 +520,7 @@ Kürek Kulübü / rowingclub.co
             <div>
               <h2 className="font-display text-xl uppercase">Ürün Yönetimi</h2>
               <p className="text-xs text-paper/50">
-                Kapatılan ürünler panelde blur'lu ve "STOK YOK" olarak gösterilir.
+                Kapatılan ürünler panelde blur'lu ve "STOK YOK" olarak gösterilir. Yıldızlı ürünler ana sayfada öne çıkarılır.
               </p>
             </div>
             <div className="flex gap-2">
@@ -458,13 +556,15 @@ Kürek Kulübü / rowingclub.co
                     <th className="py-3 px-4">Kategori</th>
                     <th className="py-3 px-4">Fiyat</th>
                     <th className="py-3 px-4">Stok Durumu</th>
-                    <th className="py-3 px-4">Durum (Kapatma Modu)</th>
+                    <th className="py-3 px-4">Öne Çıkar</th>
+                    <th className="py-3 px-4">Satış Durumu</th>
                     <th className="py-3 px-4 text-right">İşlemler</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.map((p: any) => {
                     const isClosed = p.isClosed === true;
+                    const isFeatured = p.isFeatured === true;
                     return (
                       <tr
                         key={p.id}
@@ -494,6 +594,11 @@ Kürek Kulübü / rowingclub.co
                             {isClosed && (
                               <span className="rounded-full bg-crim px-2 py-0.5 text-[9px] font-bold uppercase text-paper animate-pulse">
                                 STOK YOK
+                              </span>
+                            )}
+                            {isFeatured && (
+                              <span className="rounded-full bg-cyan/20 border border-cyan/30 px-2 py-0.5 text-[9px] font-bold uppercase text-cyan">
+                                ÖNE ÇIKAN
                               </span>
                             )}
                           </div>
@@ -526,6 +631,19 @@ Kürek Kulübü / rowingclub.co
                           ) : (
                             <span className="text-xs text-paper/80">{totalStock(p)} Adet</span>
                           )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleToggleProductFeatured(p)}
+                            className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${
+                              isFeatured
+                                ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400 hover:text-ink"
+                                : "bg-paper/10 text-paper/50 hover:bg-paper/20 hover:text-paper"
+                            }`}
+                            title={isFeatured ? "Öne Çıkarılanlardan Çıkar" : "Ana Sayfada Öne Çıkar"}
+                          >
+                            {isFeatured ? "⭐ Öne Çıkarıldı" : "☆ Öne Çıkar"}
+                          </button>
                         </td>
                         <td className="py-3 px-4">
                           <button
@@ -616,7 +734,7 @@ Kürek Kulübü / rowingclub.co
         </section>
       )}
 
-      {/* ─── TAB 3: MESAJLAR (WhatsApp & Mail Template Modal) ─── */}
+      {/* ─── TAB 3: MESAJLAR ─── */}
       {tab === "contacts" && (
         <section className="px-6 py-6 lg:px-10">
           <div className="mb-4 flex items-center justify-between">
@@ -643,7 +761,6 @@ Kürek Kulübü / rowingclub.co
                     key={c.id}
                     className="rounded-xl border border-paper/15 bg-ink/40 p-5 shadow-sm transition hover:border-paper/30 space-y-4"
                   >
-                    {/* Header: Customer info & Status selector */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-3">
@@ -667,7 +784,6 @@ Kürek Kulübü / rowingclub.co
                           {new Date(c.createdAt).toLocaleString("tr-TR")}
                         </span>
 
-                        {/* Status Switcher Dropdown */}
                         <select
                           value={currentStatus}
                           onChange={(e) => handleUpdateContactStatus(c.id, e.target.value)}
@@ -688,14 +804,11 @@ Kürek Kulübü / rowingclub.co
                       </div>
                     </div>
 
-                    {/* Customer's message */}
                     <div className="rounded-lg border border-paper/10 bg-paper/5 p-4 text-sm text-paper/80 leading-relaxed font-sans whitespace-pre-wrap">
                       {c.message}
                     </div>
 
-                    {/* Actions: WhatsApp & Mail */}
                     <div className="flex flex-wrap items-center gap-3 pt-1">
-                      {/* WhatsApp Button */}
                       <button
                         onClick={() => handleWhatsAppContact(c)}
                         className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 shadow-sm"
@@ -706,7 +819,6 @@ Kürek Kulübü / rowingclub.co
                         <span>WhatsApp'tan Yanıtla</span>
                       </button>
 
-                      {/* Mail Reply Button */}
                       <button
                         onClick={() => openEmailModal(c)}
                         className="inline-flex items-center gap-2 rounded-full border border-cyan/40 bg-cyan/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cyan transition hover:bg-cyan hover:text-ink shadow-sm"
@@ -722,7 +834,6 @@ Kürek Kulübü / rowingclub.co
                         <span>Mail Şablonu ile Yanıtla</span>
                       </button>
 
-                      {/* Quick mark as resolved */}
                       {currentStatus !== "resolved" && (
                         <button
                           onClick={() => handleUpdateContactStatus(c.id, "resolved")}
@@ -740,7 +851,7 @@ Kürek Kulübü / rowingclub.co
         </section>
       )}
 
-      {/* ─── TAB 4: KULLANICILAR (DynamoDB Users) ─── */}
+      {/* ─── TAB 4: KULLANICILAR ─── */}
       {tab === "users" && (
         <section className="px-6 py-6 lg:px-10">
           <div className="mb-4 flex items-center justify-between">
@@ -809,6 +920,372 @@ Kürek Kulübü / rowingclub.co
               </tbody>
             </table>
           </div>
+        </section>
+      )}
+
+      {/* ─── TAB 5: SİTE YAZILARI & ÖN PLAN GÖRSELLERİ (CMS) ─── */}
+      {tab === "content" && (
+        <section className="px-6 py-6 lg:px-10">
+          <form onSubmit={handleSaveSiteContent} className="space-y-8 max-w-5xl">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper/15 pb-4">
+              <div>
+                <h2 className="font-display text-2xl uppercase text-paper">
+                  Site Yazıları ve Ön Plan Görselleri Yönetimi
+                </h2>
+                <p className="text-xs text-paper/60 mt-1">
+                  Ana sayfa banner'ı, kapak görselleri, sloganlar ve iletişim bilgilerini dilediğiniz gibi güncelleyin.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {contentSuccess && (
+                  <span className="text-xs font-bold text-emerald-400 animate-pulse">
+                    ✓ Tüm içerikler başarıyla kaydedildi!
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  disabled={savingContent}
+                  className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink font-bold transition hover:bg-cyan disabled:opacity-50 shadow-lg"
+                >
+                  {savingContent ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION A: ANA SAYFA HERO & ÖN PLAN GÖRSELİ */}
+            <div className="rounded-2xl border border-paper/15 bg-ink/40 p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-paper/10 pb-3">
+                <span className="size-2 rounded-full bg-crim" />
+                <h3 className="font-display text-lg uppercase text-paper">1. Ana Sayfa (Hero Banner & Başlıklar)</h3>
+              </div>
+
+              {/* Cover Image Uploader */}
+              <div className="grid gap-6 md:grid-cols-2 items-start">
+                <div>
+                  <label className="mb-2 block text-[11px] uppercase tracking-wider text-paper/60 font-bold">
+                    Ana Sayfa Ön Plan Görseli (Hero Banner)
+                  </label>
+                  <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-paper/20 bg-ink/60 group">
+                    {siteContent.heroImage ? (
+                      <img src={siteContent.heroImage} alt="Hero Banner" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-paper/40 text-xs p-4 text-center">
+                        <span>Varsayılan Kürek Görseli Kullanılıyor</span>
+                      </div>
+                    )}
+                    <label className="absolute inset-0 bg-ink/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition">
+                      <span className="rounded-full bg-crim px-4 py-2 text-xs font-bold text-ink uppercase tracking-wider">
+                        {uploadingImageKey === "heroImage" ? "S3'e Yükleniyor..." : "Yeni Resim Yükle (S3)"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingImageKey === "heroImage"}
+                        className="sr-only"
+                        onChange={(e) => handleSiteImageUpload(e, "heroImage")}
+                      />
+                    </label>
+                  </div>
+                  {siteContent.heroImage && (
+                    <button
+                      type="button"
+                      onClick={() => setSiteContent((p: any) => ({ ...p, heroImage: "" }))}
+                      className="mt-2 text-[10px] uppercase text-crim hover:underline"
+                    >
+                      ✕ Varsayılan Görsele Dön
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Hero Ana Başlık (Satır başı için Enter basın)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={siteContent.heroTitle || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, heroTitle: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Hero Alt Başlık / Slogan
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={siteContent.heroSubtitle || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, heroSubtitle: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Hero Buton Metni
+                    </label>
+                    <input
+                      type="text"
+                      value={siteContent.heroButtonText || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, heroButtonText: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Story Banner Image & Section */}
+              <div className="pt-4 border-t border-paper/10 grid gap-6 md:grid-cols-2 items-start">
+                <div>
+                  <label className="mb-2 block text-[11px] uppercase tracking-wider text-paper/60 font-bold">
+                    Ana Sayfa Kulüp Hikayesi Ön Plan Görseli
+                  </label>
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-paper/20 bg-ink/60 group">
+                    {siteContent.storyImage ? (
+                      <img src={siteContent.storyImage} alt="Story Banner" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-paper/40 text-xs p-4 text-center">
+                        <span>Varsayılan Flatlay Görseli Kullanılıyor</span>
+                      </div>
+                    )}
+                    <label className="absolute inset-0 bg-ink/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition">
+                      <span className="rounded-full bg-crim px-4 py-2 text-xs font-bold text-ink uppercase tracking-wider">
+                        {uploadingImageKey === "storyImage" ? "S3'e Yükleniyor..." : "Yeni Resim Yükle (S3)"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingImageKey === "storyImage"}
+                        className="sr-only"
+                        onChange={(e) => handleSiteImageUpload(e, "storyImage")}
+                      />
+                    </label>
+                  </div>
+                  {siteContent.storyImage && (
+                    <button
+                      type="button"
+                      onClick={() => setSiteContent((p: any) => ({ ...p, storyImage: "" }))}
+                      className="mt-2 text-[10px] uppercase text-crim hover:underline"
+                    >
+                      ✕ Varsayılan Görsele Dön
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Hikaye Bölümü Başlığı
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={siteContent.storyHeading || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, storyHeading: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Hikaye Açıklama Metni
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={siteContent.storyDescription || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, storyDescription: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION B: KULÜP SAYFASI (HAKKIMIZDA) */}
+            <div className="rounded-2xl border border-paper/15 bg-ink/40 p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-paper/10 pb-3">
+                <span className="size-2 rounded-full bg-cyan" />
+                <h3 className="font-display text-lg uppercase text-paper">2. Kulüp Sayfası Metinleri ve Görseli</h3>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 items-start">
+                <div>
+                  <label className="mb-2 block text-[11px] uppercase tracking-wider text-paper/60 font-bold">
+                    Kulüp Sayfası Ana Görseli (Boathouse)
+                  </label>
+                  <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-paper/20 bg-ink/60 group">
+                    {siteContent.clubImage ? (
+                      <img src={siteContent.clubImage} alt="Club Main" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-paper/40 text-xs p-4 text-center">
+                        <span>Varsayılan Boathouse Görseli</span>
+                      </div>
+                    )}
+                    <label className="absolute inset-0 bg-ink/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition">
+                      <span className="rounded-full bg-crim px-4 py-2 text-xs font-bold text-ink uppercase tracking-wider">
+                        {uploadingImageKey === "clubImage" ? "S3'e Yükleniyor..." : "Yeni Resim Yükle (S3)"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingImageKey === "clubImage"}
+                        className="sr-only"
+                        onChange={(e) => handleSiteImageUpload(e, "clubImage")}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Kulüp Sayfası Başlığı
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={siteContent.clubTitle || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, clubTitle: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                      Kulüp Hakkında Detaylı Metin
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={siteContent.clubDescription || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, clubDescription: e.target.value })}
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION C: İLETİŞİM BİLGİLERİ */}
+            <div className="rounded-2xl border border-paper/15 bg-ink/40 p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-paper/10 pb-3">
+                <span className="size-2 rounded-full bg-amber-400" />
+                <h3 className="font-display text-lg uppercase text-paper">3. İletişim Sayfası Bilgileri</h3>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    İletişim Başlığı
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.contactTitle || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, contactTitle: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    İletişim E-posta Adresi
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.contactEmail || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, contactEmail: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    İletişim Telefon Numarası
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.contactPhone || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, contactPhone: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    Atölye / Adres Bilgisi
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.contactAddress || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, contactAddress: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    İletişim Açıklama Metni
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={siteContent.contactDescription || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, contactDescription: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION D: ANNOUNCEMENT & FOOTER */}
+            <div className="rounded-2xl border border-paper/15 bg-ink/40 p-6 space-y-6">
+              <div className="flex items-center gap-3 border-b border-paper/10 pb-3">
+                <span className="size-2 rounded-full bg-emerald-400" />
+                <h3 className="font-display text-lg uppercase text-paper">4. Duyuru Bandı ve Footer Metni</h3>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    Üst Kayan Duyuru Metni
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.announcement || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, announcement: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60">
+                    Alt Bilgi / Footer Telif Yazısı
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.footerText || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, footerText: e.target.value })}
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Bar */}
+            <div className="flex items-center justify-end gap-4 pt-4 border-t border-paper/15">
+              {contentSuccess && (
+                <span className="text-xs font-bold text-emerald-400 animate-pulse">
+                  ✓ Tüm içerikler başarıyla kaydedildi!
+                </span>
+              )}
+              <button
+                type="submit"
+                disabled={savingContent}
+                className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink font-bold transition hover:bg-cyan disabled:opacity-50 shadow-lg"
+              >
+                {savingContent ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+              </button>
+            </div>
+          </form>
         </section>
       )}
 
@@ -929,7 +1406,6 @@ Kürek Kulübü / rowingclub.co
               </button>
             </div>
 
-            {/* Recipient summary */}
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs bg-paper/5 p-3 rounded-lg border border-paper/10">
               <div>
                 <span className="text-paper/50">Alıcı:</span>{" "}
@@ -945,7 +1421,6 @@ Kürek Kulübü / rowingclub.co
               </div>
             </div>
 
-            {/* Editable reply body */}
             <div className="mt-4">
               <label className="mb-1.5 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
                 Cevap Metniniz (Düzenleyebilirsiniz):
@@ -958,7 +1433,6 @@ Kürek Kulübü / rowingclub.co
               />
             </div>
 
-            {/* Branded Email Preview */}
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[11px] uppercase tracking-wider text-paper/70 font-bold">
@@ -972,7 +1446,6 @@ Kürek Kulübü / rowingclub.co
               </div>
 
               <div className="rounded-xl border border-paper/20 bg-[#080d1a] p-5 text-sm text-paper/90 shadow-inner">
-                {/* Email Header */}
                 <div className="flex items-center justify-between border-b border-cyan/30 pb-3 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="font-display text-base font-bold tracking-wider text-paper">
@@ -985,18 +1458,15 @@ Kürek Kulübü / rowingclub.co
                   <span className="text-[10px] text-paper/40">Resmi İletişim</span>
                 </div>
 
-                {/* Email Content */}
                 <div className="space-y-3 whitespace-pre-wrap font-sans text-xs text-paper/80 leading-relaxed">
                   {replyMessage}
                 </div>
 
-                {/* Original Query Quote */}
                 <div className="mt-4 border-l-2 border-crim/60 bg-paper/5 pl-3 py-2 text-[11px] text-paper/60 italic rounded-r">
                   <p className="font-bold not-italic text-paper/70 mb-0.5">Müşteri Mesajı:</p>
                   "{selectedContact.message}"
                 </div>
 
-                {/* Email Footer Signature */}
                 <div className="mt-6 border-t border-paper/15 pt-3 text-[10px] text-paper/40 flex justify-between items-center">
                   <div>
                     <p className="font-semibold text-paper/60">Kürek Kulübü Destek Ekibi</p>
@@ -1009,7 +1479,6 @@ Kürek Kulübü / rowingclub.co
               </div>
             </div>
 
-            {/* Modal Actions */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-paper/15 pt-4">
               <button
                 type="button"
