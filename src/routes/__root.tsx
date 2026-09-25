@@ -602,29 +602,33 @@ function FloatingPromoBanner() {
         </div>
       )}
 
-      {/* Floating Small Diagonal Badge expanding on hover */}
-      <div className="fixed right-0 top-1/3 z-40 flex items-center">
+      {/* Ultra Compact Floating '🏷️ Fırsat' Ribbon expanding on hover */}
+      <div className="fixed right-0 top-1/3 z-40">
         <button
           onClick={handleCopy}
-          title={`İndirim Kodu: ${mainCoupon.code} — Tıklayarak Kopyala`}
-          className="group relative flex items-center gap-3 rounded-l-2xl border-l-2 border-y-2 border-paper/20 bg-gradient-to-l from-orange-600 via-amber-500 to-crim px-3.5 py-3 text-ink shadow-2xl transition-all duration-300 ease-out hover:-translate-x-3 hover:scale-110 hover:shadow-orange-500/40 cursor-pointer"
+          title={`İndirim Kodu: ${mainCoupon.code} — Tıkla ve Kopyala`}
+          className="group relative flex items-center gap-2.5 rounded-l-2xl border-l-2 border-y-2 border-paper/20 bg-gradient-to-l from-orange-600 via-amber-500 to-crim px-3 py-2.5 text-ink shadow-2xl transition-all duration-300 ease-out cursor-pointer hover:shadow-orange-500/50"
         >
-          {/* Small Diagonal Header Tag */}
-          <div className="-rotate-12 rounded bg-ink px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-amber-400 border border-amber-400/50 shadow-sm transition-transform duration-300 group-hover:rotate-0 group-hover:scale-110">
-            🏷️ FIRSAT
+          {/* Compact Tag (Default Visible): 🏷️ FIRSAT */}
+          <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-ink">
+            <span className="text-sm">🏷️</span>
+            <span className="font-display text-xs tracking-widest text-ink font-black">FIRSAT</span>
           </div>
 
-          <div className="flex flex-col text-left">
-            <span className="font-display text-xs uppercase tracking-wider text-ink font-black transition-colors group-hover:text-paper">
-              {labelText}
+          {/* Full Details Expanding smoothly on Hover */}
+          <div className="max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-out group-hover:max-w-xs group-hover:opacity-100 flex items-center gap-2.5">
+            <div className="h-4 w-px bg-ink/30" />
+            <div className="flex flex-col text-left">
+              <span className="font-display text-xs uppercase tracking-wider text-paper font-extrabold">
+                {labelText}
+              </span>
+              <span className="text-[9px] font-mono font-bold tracking-widest text-cyan">
+                {copiedCode ? "KOPYALANDI ✓" : `KOD: ${mainCoupon.code}`}
+              </span>
+            </div>
+            <span className="rounded-full bg-ink px-2 py-0.5 text-[9px] font-bold text-amber-400 font-mono uppercase tracking-wider shadow-sm">
+              {copiedCode ? "✓ OK" : "KOPYALA 📋"}
             </span>
-            <span className="text-[9px] font-mono font-bold tracking-wider text-ink/80 transition-colors group-hover:text-cyan">
-              {copiedCode ? "KOD KOPYALANDI ✓" : `KOD: ${mainCoupon.code} (TIKLA KOPYALA)`}
-            </span>
-          </div>
-
-          <div className="flex size-7 items-center justify-center rounded-full bg-ink/20 text-ink transition-transform duration-300 group-hover:scale-125 group-hover:bg-ink group-hover:text-paper">
-            <span className="text-xs font-bold">{copiedCode ? "✓" : "📋"}</span>
           </div>
         </button>
       </div>
