@@ -479,11 +479,24 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const body = (await request.json()) as any;
 
     try {
-      const existing = await _doc.send(
-        new GetCommand({ TableName: COUPONS_TABLE, Key: { id } })
-      );
+      let existingItem: any = {};
+      try {
+        const scanRes = await _doc.send(
+          new ScanCommand({
+            TableName: COUPONS_TABLE,
+            FilterExpression: "id = :id",
+            ExpressionAttributeValues: { ":id": id },
+          })
+        );
+        if (scanRes.Items && scanRes.Items.length > 0) {
+          existingItem = scanRes.Items[0];
+        }
+      } catch (scanErr) {
+        console.warn("ScanCommand warning in coupon PUT:", scanErr);
+      }
+
       const updatedCoupon = {
-        ...(existing.Item || {}),
+        ...existingItem,
         ...body,
         id,
         updatedAt: new Date().toISOString(),
@@ -614,14 +627,13 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
         const coupons = await getAllCoupons();
         const c = coupons.find((x) => String(x.code).toUpperCase().trim() === String(body.couponCode).toUpperCase().trim());
         if (c && c.id) {
+          const updatedCoupon = {
+            ...c,
+            usageCount: (c.usageCount || 0) + 1,
+            updatedAt: new Date().toISOString(),
+          };
           await _doc.send(
-            new UpdateCommand({
-              TableName: COUPONS_TABLE,
-              Key: { id: c.id },
-              UpdateExpression: "SET #uc = if_not_exists(#uc, :zero) + :inc",
-              ExpressionAttributeNames: { "#uc": "usageCount" },
-              ExpressionAttributeValues: { ":zero": 0, ":inc": 1 },
-            })
+            new PutCommand({ TableName: COUPONS_TABLE, Item: updatedCoupon })
           );
         }
       } catch (e) {

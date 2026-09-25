@@ -173,8 +173,17 @@ function AdminDashboard() {
 
   const handleToggleCouponActive = async (coupon: any) => {
     try {
-      const updated = await apiPut(`/coupons/${coupon.id}`, { active: !coupon.active });
+      const updated = await apiPut(`/coupons/${coupon.id}`, { ...coupon, active: !coupon.active });
       setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, active: updated.active ?? !coupon.active } : c)));
+    } catch (err: any) {
+      alert("Güncelleme hatası: " + err.message);
+    }
+  };
+
+  const handleToggleCouponShowOnSite = async (coupon: any) => {
+    try {
+      const updated = await apiPut(`/coupons/${coupon.id}`, { ...coupon, showOnSite: !coupon.showOnSite });
+      setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, showOnSite: updated.showOnSite ?? !coupon.showOnSite } : c)));
     } catch (err: any) {
       alert("Güncelleme hatası: " + err.message);
     }
@@ -1555,13 +1564,17 @@ Kürek Kulübü / rowingclub.co
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        {c.showOnSite ? (
-                          <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
-                            ✓ Rozet Aktif ({c.siteBannerText || c.code})
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-paper/40">Gizli</span>
-                        )}
+                        <button
+                          onClick={() => handleToggleCouponShowOnSite(c)}
+                          title="Sitede yayına al / gizle"
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold transition ${
+                            c.showOnSite
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                              : "bg-paper/10 text-paper/40 border border-paper/20 hover:text-paper"
+                          }`}
+                        >
+                          {c.showOnSite ? `✓ Yayında (${c.siteBannerText || c.code})` : "👁️ Sitede Gizli"}
+                        </button>
                       </td>
                       <td className="py-3 px-4 font-mono text-xs">
                         {c.usageCount || 0} {c.usageLimit ? `/ ${c.usageLimit}` : ""}
