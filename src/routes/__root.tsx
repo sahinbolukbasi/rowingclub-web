@@ -127,12 +127,27 @@ function CartDrawer() {
                   key={`${item.slug}-${item.size}-${item.color}`}
                   className="flex gap-4 border-b border-paper/10 py-4"
                 >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    loading="lazy"
-                    className="h-24 w-20 flex-shrink-0 rounded-lg object-cover"
-                  />
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      loading="lazy"
+                      onError={(e) => {
+                        // Fallback image display
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        const sibling = target.nextElementSibling as HTMLElement;
+                        if (sibling) sibling.style.display = "flex";
+                      }}
+                      className="h-24 w-20 flex-shrink-0 rounded-lg bg-teal/20 object-cover"
+                    />
+                  ) : null}
+                  <div
+                    className="flex h-24 w-20 flex-shrink-0 items-center justify-center rounded-lg bg-teal/20 text-xs font-bold uppercase text-paper/40"
+                    style={{ display: item.image ? "none" : "flex" }}
+                  >
+                    {item.name ? item.name.slice(0, 2) : "KK"}
+                  </div>
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-display text-base uppercase">

@@ -41,7 +41,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: CartItem[] = JSON.parse(raw);
+        const hydrated = parsed.map((item) => {
+          if (!item.image) {
+            const found = products.find((p) => p.slug === item.slug);
+            if (found) {
+              return { ...item, image: found.image || (found as any).images?.[0] || "" };
+            }
+          }
+          return item;
+        });
+        setItems(hydrated);
+      }
     } catch {
       /* ignore */
     }
@@ -61,6 +73,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     color,
     qty = 1,
   ) => {
+    const itemImage =
+      (product as any).image ||
+      (Array.isArray((product as any).images) && (product as any).images.length > 0
+        ? (product as any).images[0]
+        : "") ||
+      (product as any).primaryImage ||
+      "";
+
     setItems((prev) => {
       const idx = prev.findIndex(
         (i) => i.slug === product.slug && i.size === size && i.color === color,
@@ -69,7 +89,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const existing = prev[idx];
         if (existing) {
           const next = [...prev];
-          next[idx] = { ...existing, qty: existing.qty + qty };
+          next[idx] = {
+            ...existing,
+            qty: existing.qty + qty,
+            image: existing.image || itemImage,
+          };
           return next;
         }
       }
@@ -79,7 +103,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           slug: product.slug,
           name: product.name,
           price: product.price,
-          image: product.image,
+          image: itemImage,
           size,
           color,
           qty,
