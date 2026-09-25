@@ -479,21 +479,8 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const body = (await request.json()) as any;
 
     try {
-      let existingItem: any = {};
-      try {
-        const scanRes = await _doc.send(
-          new ScanCommand({
-            TableName: COUPONS_TABLE,
-            FilterExpression: "id = :id",
-            ExpressionAttributeValues: { ":id": id },
-          })
-        );
-        if (scanRes.Items && scanRes.Items.length > 0) {
-          existingItem = scanRes.Items[0];
-        }
-      } catch (scanErr) {
-        console.warn("ScanCommand warning in coupon PUT:", scanErr);
-      }
+      const allCoupons = await getAllCoupons();
+      const existingItem = allCoupons.find((c: any) => String(c.id) === String(id)) || {};
 
       const updatedCoupon = {
         ...existingItem,
@@ -517,10 +504,11 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const id = path.split("/").pop();
     try {
       await _doc.send(new DeleteCommand({ TableName: COUPONS_TABLE, Key: { id } }));
-    } catch (e) {
+      return jsonResponse({ success: true });
+    } catch (e: any) {
       console.error("Delete coupon error:", e);
+      return jsonResponse({ error: "Silme hatası: " + e.message }, 500);
     }
-    return jsonResponse({ success: true });
   }
 
   if (path === "/api/coupons/validate" && request.method === "POST") {
