@@ -466,50 +466,36 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
     try {
       await _doc.send(new PutCommand({ TableName: COUPONS_TABLE, Item: coupon }));
-    } catch (e) {
+      return jsonResponse(coupon);
+    } catch (e: any) {
       console.error("Put coupon error:", e);
+      return jsonResponse({ error: "Kupon kaydetme hatası: " + e.message }, 500);
     }
-    return jsonResponse(coupon);
   }
 
   if (path.startsWith("/api/admin/coupons/") && request.method === "PUT") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
     const id = path.split("/").pop();
     const body = (await request.json()) as any;
-    const { id: _, ...fields } = body;
-    const updateExpr: string[] = [];
-    const exprAttrValues: Record<string, unknown> = {};
-    const exprAttrNames: Record<string, string> = {};
 
-    for (const [key, value] of Object.entries(fields)) {
-      if (value === undefined) continue;
-      updateExpr.push(`#${key} = :${key}`);
-      exprAttrNames[`#${key}`] = key;
-      exprAttrValues[`:${key}`] = value;
-    }
-
-    if (updateExpr.length === 0) {
+    try {
       const existing = await _doc.send(
         new GetCommand({ TableName: COUPONS_TABLE, Key: { id } })
       );
-      return jsonResponse(existing.Item ?? {});
-    }
+      const updatedCoupon = {
+        ...(existing.Item || {}),
+        ...body,
+        id,
+        updatedAt: new Date().toISOString(),
+      };
 
-    try {
-      const result = await _doc.send(
-        new UpdateCommand({
-          TableName: COUPONS_TABLE,
-          Key: { id },
-          UpdateExpression: `SET ${updateExpr.join(", ")}`,
-          ExpressionAttributeNames: exprAttrNames,
-          ExpressionAttributeValues: exprAttrValues,
-          ReturnValues: "ALL_NEW",
-        })
+      await _doc.send(
+        new PutCommand({ TableName: COUPONS_TABLE, Item: updatedCoupon })
       );
-      return jsonResponse(result.Attributes);
-    } catch (e) {
+      return jsonResponse(updatedCoupon);
+    } catch (e: any) {
       console.error("Update coupon error:", e);
-      return jsonResponse({ error: "Güncelleme hatası" }, 500);
+      return jsonResponse({ error: "Güncelleme hatası: " + e.message }, 500);
     }
   }
 
