@@ -202,6 +202,39 @@ function ProductCard({ product }: { product: any }) {
   );
 }
 
+function renderHeroTitle(text?: string) {
+  const rawText = text || "Kürek\nKulübü";
+  const lines = rawText.split("\n");
+  if (lines.length > 1) {
+    return (
+      <>
+        {lines[0]}
+        <br />
+        <span className="text-[#ff5500]">{lines.slice(1).join("\n")}</span>
+      </>
+    );
+  }
+  
+  const parts = rawText.split(/(kulübü|KULÜBÜ|Kulübü)/gi);
+  if (parts.length > 1) {
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === "kulübü" ? (
+            <span key={i} className="text-[#ff5500]">
+              {part}
+            </span>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  }
+
+  return rawText;
+}
+
 function Index() {
   const [products, setProducts] = useState<any[]>([]);
   const [content, setContent] = useState<any>(null);
@@ -237,14 +270,7 @@ function Index() {
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-ink/30" />
         <div className="relative px-6 pt-10 lg:px-10">
           <h1 className="font-display text-[22vw] leading-[0.82] uppercase tracking-tight md:text-[18vw] whitespace-pre-line">
-            {content?.heroTitle ? (
-              content.heroTitle
-            ) : (
-              <>
-                Kürek<br />
-                <span className="text-[#ff5500]">Kulübü</span>
-              </>
-            )}
+            {renderHeroTitle(content?.heroTitle)}
           </h1>
         </div>
         <div className="relative flex flex-col justify-between gap-8 px-6 pb-10 md:flex-row md:items-end lg:px-10">
