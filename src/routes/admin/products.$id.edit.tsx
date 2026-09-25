@@ -22,6 +22,8 @@ function getToken() {
   }
 }
 
+import { products as staticProducts } from "@/lib/products";
+
 export const Route = createFileRoute("/admin/products/$id/edit")({
   head: () => ({
     meta: [
@@ -60,7 +62,10 @@ function EditProductPage() {
     fetch(`${API_BASE}/products?t=${token}`)
       .then((r) => r.json())
       .then((prods) => {
-        const p = prods.find((x: any) => x.id === id);
+        let p = Array.isArray(prods) ? prods.find((x: any) => x.id === id || x.slug === id) : null;
+        if (!p) {
+          p = staticProducts.find((x: any) => x.slug === id || (x as any).id === id);
+        }
         if (!p) return;
         setName(p.name || "");
         setSlug(p.slug || "");
@@ -69,7 +74,7 @@ function EditProductPage() {
         setDescription(p.description || "");
         setDetail(p.detail || "");
         setTag(p.tag || "");
-        setImages(p.images?.length ? p.images : []);
+        setImages(p.images?.length ? p.images : p.image ? [p.image] : []);
         setIsClosed(p.isClosed === true);
 
         const colorNames = p.colors?.map((c: any) => c.name) ?? [];

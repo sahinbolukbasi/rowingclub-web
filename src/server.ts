@@ -383,29 +383,33 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
   if (path.startsWith("/api/admin/products/") && request.method === "PUT") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    const id = path.split("/").pop();
-    const body = await request.json() as any;
-    const { id: _, ...fields } = body;
-    const updateExpr: string[] = [];
-    const exprAttrValues: Record<string, unknown> = {};
-    const exprAttrNames: Record<string, string> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value === undefined) continue;
-      updateExpr.push(`#${key} = :${key}`);
-      exprAttrNames[`#${key}`] = key;
-      exprAttrValues[`:${key}`] = value;
+    const id = path.split("/").pop() || "";
+    const body = (await request.json()) as any;
+
+    try {
+      // Fetch existing item if any
+      let existingItem: any = null;
+      try {
+        const getRes = await _doc.send(new GetCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
+        existingItem = getRes.Item;
+      } catch (e) {
+        /* ignore */
+      }
+
+      // If not in DB yet, try to find matching product by id/slug in static products
+      const updatedProduct = {
+        ...(existingItem || {}),
+        ...body,
+        id,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await _doc.send(new PutCommand({ TableName: PRODUCTS_TABLE, Item: updatedProduct }));
+      return jsonResponse(updatedProduct);
+    } catch (err) {
+      console.error("Product PUT error:", err);
+      return jsonResponse({ error: "Ürün güncelleme hatası: " + String(err) }, 500);
     }
-    if (updateExpr.length === 0) {
-      const existing = await _doc.send(new GetCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
-      return jsonResponse(existing.Item ?? {});
-    }
-    const result = await _doc.send(new UpdateCommand({
-      TableName: PRODUCTS_TABLE,
-      Key: { id },
-      UpdateExpression: `SET ${updateExpr.join(", ")}`,
-      ExpressionAttributeNames: exprAttrNames,
-    }));
-    return jsonResponse(result.Attributes);
   }
 
   if (path.startsWith("/api/admin/products/") && request.method === "DELETE") {
