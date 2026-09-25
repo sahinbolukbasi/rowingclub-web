@@ -116,6 +116,14 @@ function EditProductPage() {
 
   const addImageUrl = () => setImages([...images, ""]);
   const remImage = (i: number) => setImages(images.filter((_, idx) => idx !== i));
+  const setAsCoverImage = (i: number) => {
+    setImages((prev) => {
+      const target = prev[i];
+      if (!target) return prev;
+      const rest = prev.filter((_, idx) => idx !== i);
+      return [target, ...rest];
+    });
+  };
   const updImage = (i: number, v: string) => {
     const n = [...images];
     n[i] = v;
@@ -377,21 +385,52 @@ function EditProductPage() {
           {/* Yüklü Resimler Galerisi */}
           {images.filter((i) => i.trim()).length > 0 && (
             <div className="mb-4">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 mb-2">Yüklü Görseller ({images.filter((i) => i.trim()).length})</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                {images.filter((i) => i.trim()).map((img, idx) => (
-                  <div key={idx} className="group relative aspect-square rounded-lg border border-paper/20 overflow-hidden bg-ink/60 shadow">
-                    <img src={img} alt="Ürün" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => remImage(idx)}
-                      className="absolute top-1 right-1 size-6 rounded-full bg-crim text-ink flex items-center justify-center text-xs font-bold shadow hover:bg-paper transition"
-                      title="Sil"
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">
+                  Yüklü Görseller ({images.filter((i) => i.trim()).length})
+                </p>
+                <span className="text-[10px] text-amber-400 font-semibold">
+                  ★ 1. resim sitede öne çıkan kapak görselidir
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {images
+                  .filter((i) => i.trim())
+                  .map((img, idx) => (
+                    <div
+                      key={idx}
+                      className={`group relative aspect-square rounded-xl border overflow-hidden bg-ink/60 shadow transition ${
+                        idx === 0
+                          ? "border-amber-400 ring-2 ring-amber-400/30"
+                          : "border-paper/20 hover:border-paper/40"
+                      }`}
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      <img src={img} alt="Ürün" className="w-full h-full object-cover" />
+                      
+                      <button
+                        type="button"
+                        onClick={() => remImage(idx)}
+                        className="absolute top-2 right-2 size-6 rounded-full bg-crim text-ink flex items-center justify-center text-xs font-bold shadow hover:bg-paper transition z-10"
+                        title="Sil"
+                      >
+                        ✕
+                      </button>
+
+                      {idx === 0 ? (
+                        <div className="absolute bottom-2 left-2 right-2 rounded-md bg-amber-400/95 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-ink shadow">
+                          ★ Öne Çıkan Görsel
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAsCoverImage(idx)}
+                          className="absolute bottom-2 left-2 right-2 rounded-md bg-ink/85 border border-paper/20 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-paper hover:bg-cyan hover:text-ink transition shadow"
+                        >
+                          Öne Çıkan Yap
+                        </button>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           )}
