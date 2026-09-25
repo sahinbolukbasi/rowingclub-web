@@ -17,17 +17,33 @@ function ProductPage() {
   const { addItem } = useCart();
   const [product, setProduct] = useState<any>(null);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [size, setSize] = useState<string>("");
   const [color, setColor] = useState<string>("");
   const [imgIndex, setImgIndex] = useState(0);
   const THUMB_COUNT = 3;
 
   useEffect(() => {
-    fetch("/api/products").then((r) => r.json()).then((prods) => {
-      setAllProducts(prods);
-      setProduct(prods.find((p: any) => p.slug === slug) ?? null);
-    });
+    setLoading(true);
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((prods) => {
+        if (Array.isArray(prods)) {
+          setAllProducts(prods);
+          setProduct(prods.find((p: any) => p.slug === slug) ?? null);
+        }
+      })
+      .catch((err) => console.error("Product load error:", err))
+      .finally(() => setLoading(false));
   }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-paper/50 animate-pulse">Ürün yükleniyor...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
