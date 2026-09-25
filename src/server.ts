@@ -20,6 +20,55 @@ const ORDERS_TABLE = process.env.ORDERS_TABLE ?? "kurek-orders";
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE ?? "kurek-contacts";
 const USERS_TABLE = process.env.USERS_TABLE ?? "kurek-users";
 const CONTENT_TABLE = process.env.CONTENT_TABLE ?? "kurek-content";
+const COUPONS_TABLE = process.env.COUPONS_TABLE ?? "kurek-coupons";
+
+const INITIAL_COUPONS = [
+  {
+    id: "coup_kurek10",
+    code: "KUREK10",
+    type: "percentage",
+    value: 10,
+    targetType: "all",
+    showOnSite: true,
+    siteBannerText: "%10 İNDİRİM",
+    minOrderAmount: 0,
+    usageLimit: 1000,
+    usageCount: 0,
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "coup_kurek50",
+    code: "KUREK-9F8A2B",
+    type: "fixed",
+    value: 50,
+    targetType: "all",
+    showOnSite: false,
+    siteBannerText: "50 ₺ Özel İndirim",
+    minOrderAmount: 300,
+    usageLimit: 200,
+    usageCount: 0,
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+];
+
+async function getAllCoupons(): Promise<any[]> {
+  try {
+    const res = await _doc.send(new ScanCommand({ TableName: COUPONS_TABLE }));
+    const items = res.Items ?? [];
+    if (items.length === 0) {
+      for (const item of INITIAL_COUPONS) {
+        await _doc.send(new PutCommand({ TableName: COUPONS_TABLE, Item: item })).catch(() => {});
+      }
+      return INITIAL_COUPONS;
+    }
+    return items;
+  } catch (e) {
+    console.warn("Coupons scan error:", e);
+    return INITIAL_COUPONS;
+  }
+}
 
 const DEFAULT_CONTENT = {
   id: "site-content",
@@ -366,6 +415,195 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse({ success: true });
   }
 
+  // ─── Coupons & Campaigns ───────────────────────
+  if (path === "/api/coupons/public" && request.method === "GET") {
+    const coupons = await getAllCoupons();
+    const publicCoupons = coupons.filter(
+      (c) =>
+        c.active !== false &&
+        c.showOnSite === true &&
+        (!c.usageLimit || (c.usageCount || 0) < c.usageLimit) &&
+        (!c.expiresAt || new Date(c.expiresAt).getTime() > Date.now())
+    );
+    return jsonResponse(publicCoupons);
+  }
+
+  if (path === "/api/admin/coupons" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const coupons = await getAllCoupons();
+    return jsonResponse(coupons);
+  }
+
+  if (path === "/api/admin/coupons" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = (await request.json()) as any;
+    const couponCode = (
+      body.code || `KUREK-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+    )
+      .toUpperCase()
+      .trim();
+
+    const coupon = {
+      id: genId("coup"),
+      code: couponCode,
+      type: body.type || "percentage",
+      value: Number(body.value) || 10,
+      targetType: body.targetType || "all",
+      targetProductSlug: body.targetProductSlug || "",
+      showOnSite: body.showOnSite ?? false,
+      siteBannerText: body.siteBannerText || "",
+      minOrderAmount: Number(body.minOrderAmount) || 0,
+      usageLimit: body.usageLimit ? Number(body.usageLimit) : null,
+      usageCount: 0,
+      expiresAt: body.expiresAt || "",
+      active: body.active ?? true,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await _doc.send(new PutCommand({ TableName: COUPONS_TABLE, Item: coupon }));
+    } catch (e) {
+      console.error("Put coupon error:", e);
+    }
+    return jsonResponse(coupon);
+  }
+
+  if (path.startsWith("/api/admin/coupons/") && request.method === "PUT") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = path.split("/").pop();
+    const body = (await request.json()) as any;
+    const { id: _, ...fields } = body;
+    const updateExpr: string[] = [];
+    const exprAttrValues: Record<string, unknown> = {};
+    const exprAttrNames: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(fields)) {
+      if (value === undefined) continue;
+      updateExpr.push(`#${key} = :${key}`);
+      exprAttrNames[`#${key}`] = key;
+      exprAttrValues[`:${key}`] = value;
+    }
+
+    if (updateExpr.length === 0) {
+      const existing = await _doc.send(
+        new GetCommand({ TableName: COUPONS_TABLE, Key: { id } })
+      );
+      return jsonResponse(existing.Item ?? {});
+    }
+
+    try {
+      const result = await _doc.send(
+        new UpdateCommand({
+          TableName: COUPONS_TABLE,
+          Key: { id },
+          UpdateExpression: `SET ${updateExpr.join(", ")}`,
+          ExpressionAttributeNames: exprAttrNames,
+          ExpressionAttributeValues: exprAttrValues,
+          ReturnValues: "ALL_NEW",
+        })
+      );
+      return jsonResponse(result.Attributes);
+    } catch (e) {
+      console.error("Update coupon error:", e);
+      return jsonResponse({ error: "Güncelleme hatası" }, 500);
+    }
+  }
+
+  if (path.startsWith("/api/admin/coupons/") && request.method === "DELETE") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = path.split("/").pop();
+    try {
+      await _doc.send(new DeleteCommand({ TableName: COUPONS_TABLE, Key: { id } }));
+    } catch (e) {
+      console.error("Delete coupon error:", e);
+    }
+    return jsonResponse({ success: true });
+  }
+
+  if (path === "/api/coupons/validate" && request.method === "POST") {
+    const body = (await request.json()) as any;
+    const rawCode = String(body.code || "").toUpperCase().trim();
+    const cartTotal = Number(body.total) || 0;
+    const cartItems = Array.isArray(body.items) ? body.items : [];
+
+    if (!rawCode) {
+      return jsonResponse({ valid: false, message: "Lütfen bir indirim kodu girin." }, 400);
+    }
+
+    const allCoupons = await getAllCoupons();
+    const found = allCoupons.find(
+      (c) => String(c.code).toUpperCase().trim() === rawCode
+    );
+
+    if (!found) {
+      return jsonResponse({ valid: false, message: "Girdiğiniz indirim kodu bulunamadı veya geçersiz." }, 404);
+    }
+
+    if (found.active === false) {
+      return jsonResponse({ valid: false, message: "Bu indirim kodu şu anda pasif durumda." });
+    }
+
+    if (found.expiresAt && new Date(found.expiresAt).getTime() < Date.now()) {
+      return jsonResponse({ valid: false, message: "Bu indirim kodunun kullanım süresi dolmuş." });
+    }
+
+    if (found.usageLimit && (found.usageCount || 0) >= found.usageLimit) {
+      return jsonResponse({ valid: false, message: "Bu indirim kodunun kullanım limiti dolmuştur." });
+    }
+
+    if (found.minOrderAmount && cartTotal < found.minOrderAmount) {
+      return jsonResponse({
+        valid: false,
+        message: `Bu indirim kodu en az ₺${found.minOrderAmount} tutarındaki siparişlerde geçerlidir.`,
+      });
+    }
+
+    let discountAmount = 0;
+    if (found.targetType === "product" && found.targetProductSlug) {
+      const matchingItems = cartItems.filter(
+        (i: any) => i.slug === found.targetProductSlug
+      );
+      if (matchingItems.length === 0) {
+        return jsonResponse({
+          valid: false,
+          message: "Bu indirim kodu sepete eklediğiniz ürünlerde geçerli değil.",
+        });
+      }
+      const productSubtotal = matchingItems.reduce(
+        (sum: number, i: any) => sum + (Number(i.price) || 0) * (Number(i.qty) || 1),
+        0
+      );
+      if (found.type === "percentage") {
+        discountAmount = Math.round(productSubtotal * (found.value / 100));
+      } else {
+        discountAmount = Math.min(productSubtotal, found.value);
+      }
+    } else {
+      // Applies to all products
+      if (found.type === "percentage") {
+        discountAmount = Math.round(cartTotal * (found.value / 100));
+      } else {
+        discountAmount = Math.min(cartTotal, found.value);
+      }
+    }
+
+    const finalTotal = Math.max(0, cartTotal - discountAmount);
+
+    return jsonResponse({
+      valid: true,
+      coupon: {
+        id: found.id,
+        code: found.code,
+        type: found.type,
+        value: found.value,
+        targetType: found.targetType,
+        targetProductSlug: found.targetProductSlug,
+      },
+      discountAmount,
+      finalTotal,
+    });
+  }
+
   // ─── Orders ─────────────────────────────────────
   if (path === "/api/orders" && request.method === "POST") {
     const body = await request.json() as any;
@@ -379,6 +617,28 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       createdAt: new Date().toISOString(),
     };
     await _doc.send(new PutCommand({ TableName: ORDERS_TABLE, Item: order }));
+
+    // Update coupon usage count if coupon used
+    if (body.couponCode) {
+      try {
+        const coupons = await getAllCoupons();
+        const c = coupons.find((x) => String(x.code).toUpperCase().trim() === String(body.couponCode).toUpperCase().trim());
+        if (c && c.id) {
+          await _doc.send(
+            new UpdateCommand({
+              TableName: COUPONS_TABLE,
+              Key: { id: c.id },
+              UpdateExpression: "SET #uc = if_not_exists(#uc, :zero) + :inc",
+              ExpressionAttributeNames: { "#uc": "usageCount" },
+              ExpressionAttributeValues: { ":zero": 0, ":inc": 1 },
+            })
+          );
+        }
+      } catch (e) {
+        console.warn("Coupon usage count update error:", e);
+      }
+    }
+
     return jsonResponse(order);
   }
 

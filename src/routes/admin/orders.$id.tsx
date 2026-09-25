@@ -171,6 +171,11 @@ function OrderDetailPage() {
           <div className="text-right">
             <span className="text-xs text-paper/50 uppercase tracking-wider block">Toplam Tutar</span>
             <span className="font-display text-3xl text-cyan">₺{order.total}</span>
+            {order.couponCode && (
+              <span className="mt-1.5 inline-block text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                🏷️ İndirim Kodu: <strong>{order.couponCode}</strong> (-₺{order.discountAmount || 0})
+              </span>
+            )}
           </div>
         </div>
 

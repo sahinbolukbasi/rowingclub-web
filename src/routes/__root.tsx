@@ -554,6 +554,72 @@ function TrackingScripts() {
   return null;
 }
 
+function FloatingPromoBanner() {
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/coupons/public")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCoupons(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (coupons.length === 0) return null;
+
+  const mainCoupon = coupons[0];
+  const labelText =
+    mainCoupon.siteBannerText ||
+    (mainCoupon.type === "percentage"
+      ? `%${mainCoupon.value} İNDİRİM`
+      : `₺${mainCoupon.value} İNDİRİM`);
+
+  const handleCopy = () => {
+    try {
+      navigator.clipboard.writeText(mainCoupon.code);
+      setCopiedCode(mainCoupon.code);
+      setTimeout(() => setCopiedCode(null), 3000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <>
+      {/* Toast popup when copied */}
+      {copiedCode && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-paper/20 bg-ink px-6 py-3 shadow-2xl backdrop-blur-md">
+          <p className="text-xs uppercase tracking-[0.18em] text-cyan flex items-center gap-2 font-bold">
+            <span>✨ İndirim Kodu Kopyalandı:</span>
+            <span className="rounded bg-crim px-2 py-0.5 text-paper font-mono">{copiedCode}</span>
+          </p>
+        </div>
+      )}
+
+      {/* Floating Side Badge on the right */}
+      <div className="fixed right-0 top-1/2 z-40 -translate-y-1/2 flex flex-col items-end">
+        <button
+          onClick={handleCopy}
+          title={`İndirim kodunu kopyalamak için tıklayın: ${mainCoupon.code}`}
+          className="group relative flex items-center gap-2 rounded-l-2xl border-l-2 border-y-2 border-paper/20 bg-[#ff5500] px-3.5 py-4 text-ink shadow-2xl transition-all duration-300 hover:-translate-x-1.5 hover:bg-cyan"
+        >
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-ink/70">KAMPANYA</span>
+            <span className="font-display text-base uppercase tracking-wider text-ink">{labelText}</span>
+            <span className="mt-1.5 rounded-full bg-ink/20 px-2 py-0.5 font-mono text-[9px] font-bold tracking-widest text-ink group-hover:bg-ink group-hover:text-paper">
+              {copiedCode ? "KOPYALANDI ✓" : "KODU KOPYALA 📋"}
+            </span>
+          </div>
+        </button>
+      </div>
+    </>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -561,6 +627,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <TrackingScripts />
+        <FloatingPromoBanner />
         <div className="noise-overlay" />
         <div className="flex min-h-screen flex-col bg-ink text-paper">
           <Header />

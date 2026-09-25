@@ -30,6 +30,12 @@ function CheckoutPage() {
     note: "",
   });
 
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -59,6 +65,47 @@ function CheckoutPage() {
     }));
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError("");
+
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          code: couponCodeInput.trim(),
+          items,
+          total,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setAppliedCoupon(data.coupon);
+        setDiscountAmount(data.discountAmount);
+        setCouponError("");
+      } else {
+        setAppliedCoupon(null);
+        setDiscountAmount(0);
+        setCouponError(data.message || "Geçersiz indirim kodu.");
+      }
+    } catch {
+      setCouponError("Sunucu hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setCouponCodeInput("");
+    setCouponError("");
+  };
+
+  const finalTotal = Math.max(0, total - discountAmount);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -80,7 +127,10 @@ function CheckoutPage() {
             qty: i.qty,
             image: i.image,
           })),
-          total,
+          total: finalTotal,
+          originalTotal: total,
+          couponCode: appliedCoupon?.code || "",
+          discountAmount: discountAmount,
           customerName: form.name,
           customerEmail: form.email,
           customerPhone: form.phone,
@@ -93,7 +143,7 @@ function CheckoutPage() {
       router.navigate({
         to: "/payment/checkout",
         params: {},
-        search: { orderId: order.id, total: String(total) } as any,
+        search: { orderId: order.id, total: String(finalTotal) } as any,
       });
     } catch (err) {
       setError("Bir hata oluştu. Lütfen tekrar deneyin.");
@@ -247,7 +297,7 @@ function CheckoutPage() {
             disabled={submitting}
             className="w-full rounded-full bg-crim py-3.5 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50"
           >
-            {submitting ? "İşleniyor..." : `Ödemeye geç · ₺${total}`}
+            {submitting ? "İşleniyor..." : `Ödemeye geç · ₺${finalTotal}`}
           </button>
           <p className="mt-3 text-center text-[10px] uppercase tracking-[0.18em] text-paper/40">
             iyzico güvenli ödeme altyapısı ile
@@ -300,13 +350,70 @@ function CheckoutPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-paper/15 pt-4">
-              <span className="text-xs uppercase tracking-[0.18em] text-paper/60">
-                Toplam
-              </span>
-              <span className="font-display text-xl text-paper">
-                ₺{total}
-              </span>
+
+            {/* İndirim Kodu Uygulama */}
+            <div className="mt-4 border-t border-paper/15 pt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.18em] text-paper/50 font-semibold">
+                  İndirim Kodu / Kampanya Kodu
+                </label>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs">
+                    <div className="flex items-center gap-1.5 font-mono text-emerald-400">
+                      <span>✓</span>
+                      <span className="font-bold">{appliedCoupon.code}</span>
+                      <span className="text-[10px] text-paper/60">(-₺{discountAmount})</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-[10px] uppercase tracking-wider text-paper/40 hover:text-crim"
+                    >
+                      Kaldır ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCodeInput}
+                      onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                      placeholder="Örn: KUREK10"
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-1.5 text-xs text-paper uppercase outline-none focus:border-cyan placeholder:normal-case placeholder:text-paper/25"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={validatingCoupon || !couponCodeInput.trim()}
+                      className="rounded-lg bg-cyan/20 px-3 py-1.5 font-display text-xs uppercase text-cyan transition hover:bg-cyan hover:text-ink disabled:opacity-40"
+                    >
+                      {validatingCoupon ? "..." : "Uygula"}
+                    </button>
+                  </div>
+                )}
+                {couponError && (
+                  <p className="mt-1 text-[11px] text-crim">{couponError}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-paper/60 pt-1">
+                <span>Ara Toplam</span>
+                <span className="font-mono">₺{total}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold">
+                  <span>İndirim ({appliedCoupon?.code})</span>
+                  <span className="font-mono">-₺{discountAmount}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-paper/15 pt-3">
+                <span className="text-xs uppercase tracking-[0.18em] text-paper/60">
+                  Ödenecek Tutar
+                </span>
+                <span className="font-display text-xl text-paper">
+                  ₺{finalTotal}
+                </span>
+              </div>
             </div>
           </div>
         </div>

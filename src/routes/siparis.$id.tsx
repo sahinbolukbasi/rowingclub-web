@@ -116,8 +116,14 @@ function SiparisTakipPage() {
             </div>
           ))}
         </div>
-        <div className="mt-4 flex items-center justify-between border-t border-paper/15 pt-4">
-          <span className="text-xs uppercase tracking-[0.18em] text-paper/60">Toplam</span>
+        {order.couponCode && (
+          <div className="mt-3 flex items-center justify-between text-xs text-emerald-400 font-semibold border-t border-paper/10 pt-3">
+            <span>Uygulanan İndirim ({order.couponCode})</span>
+            <span className="font-mono">-₺{order.discountAmount || 0}</span>
+          </div>
+        )}
+        <div className="mt-3 flex items-center justify-between border-t border-paper/15 pt-3">
+          <span className="text-xs uppercase tracking-[0.18em] text-paper/60">Toplam Ödenen</span>
           <span className="font-display text-xl text-paper">₺{order.total}</span>
         </div>
       </div>

@@ -109,11 +109,90 @@ function AdminDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [tab, setTab] = useState<"products" | "orders" | "contacts" | "users" | "content">("products");
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [tab, setTab] = useState<"products" | "orders" | "coupons" | "contacts" | "users" | "content">("products");
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
 
-  // Site Content State
+  // Coupon form modal state
+  const [showAddCouponModal, setShowAddCouponModal] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
+  const [savingCoupon, setSavingCoupon] = useState(false);
+  const [couponForm, setCouponForm] = useState({
+    code: "",
+    type: "percentage",
+    value: 10,
+    targetType: "all",
+    targetProductSlug: "",
+    showOnSite: true,
+    siteBannerText: "%10 İNDİRİM",
+    minOrderAmount: 0,
+    usageLimit: 500,
+    expiresAt: "",
+    active: true,
+  });
+
+  const generateRandomCouponCode = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "KUREK-";
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCouponForm((prev) => ({ ...prev, code }));
+  };
+
+  const handleSaveCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCoupon(true);
+    try {
+      if (editingCoupon) {
+        await apiPut(`/coupons/${editingCoupon.id}`, couponForm);
+      } else {
+        await apiPost("/coupons", couponForm);
+      }
+      setShowAddCouponModal(false);
+      setEditingCoupon(null);
+      const res = await apiGet("/coupons");
+      setCoupons(res);
+    } catch (err: any) {
+      alert("İndirim kodu kaydedilirken hata oluştu: " + err.message);
+    } finally {
+      setSavingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm("Bu indirim kodunu silmek istediğinize emin misiniz?")) return;
+    try {
+      await apiDelete(`/coupons/${id}`);
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      alert("Silme hatası: " + err.message);
+    }
+  };
+
+  const handleToggleCouponActive = async (coupon: any) => {
+    try {
+      const updated = await apiPut(`/coupons/${coupon.id}`, { active: !coupon.active });
+      setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, active: updated.active ?? !coupon.active } : c)));
+    } catch (err: any) {
+      alert("Güncelleme hatası: " + err.message);
+    }
+  };
+
+  const loadData = () => {
+    apiGet("/products").then(setProducts).catch((e) => setError(e.message));
+    apiGet("/orders").then(setOrders).catch((e) => setError(e.message));
+    apiGet("/contacts").then(setContacts).catch((e) => setError(e.message));
+    apiGet("/users").then(setUsers).catch((e) => console.warn("Users error:", e));
+    apiGet("/coupons").then(setCoupons).catch((e) => console.warn("Coupons error:", e));
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.id) setSiteContent((prev: any) => ({ ...prev, ...data }));
+      })
+      .catch((e) => console.warn("Content load error:", e));
+  };
   const [siteContent, setSiteContent] = useState<any>({
     heroTitle: "Kürek\nKulübü",
     heroSubtitle: "Denizi giyin. Her tişört, bir sabah küreği ve tuzlu rüzgar için tasarlandı.",
@@ -161,19 +240,6 @@ function AdminDashboard() {
   const [selectedContact, setSelectedContact] = useState<any | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const loadData = () => {
-    apiGet("/products").then(setProducts).catch((e) => setError(e.message));
-    apiGet("/orders").then(setOrders).catch((e) => setError(e.message));
-    apiGet("/contacts").then(setContacts).catch((e) => setError(e.message));
-    apiGet("/users").then(setUsers).catch((e) => console.warn("Users error:", e));
-    fetch("/api/content")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.id) setSiteContent((prev: any) => ({ ...prev, ...data }));
-      })
-      .catch((e) => console.warn("Content load error:", e));
-  };
 
   useEffect(() => {
     if (!authed) return;
@@ -1406,6 +1472,148 @@ Kürek Kulübü / rowingclub.co
         </section>
       )}
 
+      {/* ─── TAB: KAMPANYALAR & İNDİRİM KODLARI ─── */}
+      {tab === "coupons" && (
+        <section className="px-6 py-6 lg:px-10">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl uppercase">Kampanya & İndirim Kodu Yönetimi</h2>
+              <p className="text-xs text-paper/50">
+                Karmaşık rastgele indirim kodları oluşturabilir, sitede sağ bar kampanya rozetinde görünmesini sağlayabilirsiniz.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingCoupon(null);
+                setCouponForm({
+                  code: `KUREK-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+                  type: "percentage",
+                  value: 10,
+                  targetType: "all",
+                  targetProductSlug: "",
+                  showOnSite: true,
+                  siteBannerText: "%10 İNDİRİM",
+                  minOrderAmount: 0,
+                  usageLimit: 500,
+                  expiresAt: "",
+                  active: true,
+                });
+                setShowAddCouponModal(true);
+              }}
+              className="rounded-full bg-crim px-5 py-2 text-[11px] uppercase tracking-[0.18em] text-ink font-semibold transition hover:bg-cyan shadow-md"
+            >
+              + Yeni İndirim Kodu Oluştur
+            </button>
+          </div>
+
+          {coupons.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-paper/20 p-12 text-center">
+              <p className="text-sm text-paper/50">Henüz tanımlanmış kampanya kodu bulunmuyor.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-paper/15 bg-ink/30">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-paper/15 text-[11px] uppercase tracking-[0.18em] text-paper/50 bg-paper/5">
+                    <th className="py-3 px-4">Kod</th>
+                    <th className="py-3 px-4">İndirim Tipi & Oranı</th>
+                    <th className="py-3 px-4">Uygulama Alanı</th>
+                    <th className="py-3 px-4">Sitede Rozette Göster</th>
+                    <th className="py-3 px-4">Kullanım Sayısı</th>
+                    <th className="py-3 px-4">Durum</th>
+                    <th className="py-3 px-4 text-right">İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coupons.map((c: any) => (
+                    <tr key={c.id} className="border-b border-paper/10 transition hover:bg-paper/5">
+                      <td className="py-3 px-4 font-mono font-bold text-cyan">
+                        {c.code}
+                      </td>
+                      <td className="py-3 px-4 font-semibold">
+                        {c.type === "percentage" ? `%${c.value} İndirim` : `₺${c.value} İndirim`}
+                        {c.minOrderAmount > 0 && (
+                          <span className="block text-[10px] text-paper/40 font-normal">
+                            Min. Sepet: ₺{c.minOrderAmount}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-xs text-paper/70">
+                        {c.targetType === "all" ? (
+                          <span className="rounded bg-paper/10 px-2 py-0.5 text-[10px] font-semibold text-paper/80">
+                            Tüm Ürünler
+                          </span>
+                        ) : (
+                          <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                            Özel Ürün: {c.targetProductSlug}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {c.showOnSite ? (
+                          <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                            ✓ Rozet Aktif ({c.siteBannerText || c.code})
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-paper/40">Gizli</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-xs">
+                        {c.usageCount || 0} {c.usageLimit ? `/ ${c.usageLimit}` : ""}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => handleToggleCouponActive(c)}
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                            c.active
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : "bg-crim/20 text-crim border border-crim/30"
+                          }`}
+                        >
+                          {c.active ? "Aktif" : "Pasif"}
+                        </button>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingCoupon(c);
+                              setCouponForm({
+                                code: c.code,
+                                type: c.type || "percentage",
+                                value: c.value || 10,
+                                targetType: c.targetType || "all",
+                                targetProductSlug: c.targetProductSlug || "",
+                                showOnSite: c.showOnSite ?? false,
+                                siteBannerText: c.siteBannerText || "",
+                                minOrderAmount: c.minOrderAmount || 0,
+                                usageLimit: c.usageLimit || 100,
+                                expiresAt: c.expiresAt || "",
+                                active: c.active ?? true,
+                              });
+                              setShowAddCouponModal(true);
+                            }}
+                            className="rounded-full border border-paper/20 px-3 py-1 text-[10px] uppercase text-paper/70 hover:border-cyan hover:text-cyan"
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCoupon(c.id)}
+                            className="rounded-full border border-crim/30 px-3 py-1 text-[10px] uppercase text-crim hover:bg-crim hover:text-ink"
+                          >
+                            Sil
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ─── MODAL: KULLANICI EKLE ─── */}
       {showAddUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 backdrop-blur-sm p-4">
@@ -1622,6 +1830,235 @@ Kürek Kulübü / rowingclub.co
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: İNDİRİM KODU OLUŞTUR / DÜZENLE ─── */}
+      {showAddCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-paper/20 bg-ink p-6 shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-paper/15 pb-4">
+              <h3 className="font-display text-lg uppercase tracking-wide text-paper">
+                {editingCoupon ? "İndirim Kodunu Düzenle" : "Yeni İndirim Kodu Oluştur"}
+              </h3>
+              <button
+                onClick={() => setShowAddCouponModal(false)}
+                className="text-xs uppercase text-paper/50 hover:text-paper"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs">
+              <div>
+                <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                  İndirim Kodu *
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponForm.code}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        code: e.target.value.toUpperCase().trim(),
+                      })
+                    }
+                    placeholder="Örn: KUREK10"
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3.5 py-2.5 font-mono text-sm text-paper uppercase outline-none focus:border-cyan"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={generateRandomCouponCode}
+                    title="Tahmin Edilemeyen Karmaşık Kod Üret"
+                    className="rounded-xl border border-cyan/40 bg-cyan/10 px-3 py-2.5 font-bold uppercase tracking-wider text-cyan hover:bg-cyan hover:text-ink transition whitespace-nowrap"
+                  >
+                    🎲 Karmaşık Kod
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                    İndirim Tipi *
+                  </label>
+                  <select
+                    value={couponForm.type}
+                    onChange={(e) =>
+                      setCouponForm({ ...couponForm, type: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan"
+                  >
+                    <option value="percentage">Yüzde (%) İndirim</option>
+                    <option value="fixed">Sabit Tutar (₺) İndirim</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                    İndirim Miktarı *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={couponForm.value}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        value: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                    Uygulama Kapsamı *
+                  </label>
+                  <select
+                    value={couponForm.targetType}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        targetType: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan"
+                  >
+                    <option value="all">Tüm Ürünlerde Geçerli</option>
+                    <option value="product">Sadece Belirli Üründe</option>
+                  </select>
+                </div>
+
+                {couponForm.targetType === "product" && (
+                  <div>
+                    <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                      Geçerli Ürün Seçin *
+                    </label>
+                    <select
+                      value={couponForm.targetProductSlug}
+                      onChange={(e) =>
+                        setCouponForm({
+                          ...couponForm,
+                          targetProductSlug: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan"
+                      required
+                    >
+                      <option value="">-- Ürün Seçin --</option>
+                      {products.map((p: any) => (
+                        <option key={p.slug} value={p.slug}>
+                          {p.name} ({p.price} ₺)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-paper/15 bg-paper/5 p-3 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={couponForm.showOnSite}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        showOnSite: e.target.checked,
+                      })
+                    }
+                    className="size-4 rounded accent-cyan"
+                  />
+                  <span className="font-bold uppercase tracking-wider text-paper">
+                    Sitede Sağ Bar Rozetinde Göster (Public Kampanya)
+                  </span>
+                </label>
+
+                {couponForm.showOnSite && (
+                  <div>
+                    <label className="mb-1 block text-[10px] uppercase tracking-wider text-paper/50">
+                      Site Banner Metni (Örn: %10 İNDİRİM)
+                    </label>
+                    <input
+                      type="text"
+                      value={couponForm.siteBannerText}
+                      onChange={(e) =>
+                        setCouponForm({
+                          ...couponForm,
+                          siteBannerText: e.target.value,
+                        })
+                      }
+                      placeholder="%10 İndirim Fırsatı"
+                      className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2 text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                    Min. Sepet Tutarı (₺)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={couponForm.minOrderAmount}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        minOrderAmount: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold uppercase tracking-wider text-paper/70">
+                    Kullanım Limiti (Kişi)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={couponForm.usageLimit || ""}
+                    onChange={(e) =>
+                      setCouponForm({
+                        ...couponForm,
+                        usageLimit: Number(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Sınırsız için boş bırakın"
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-3 py-2.5 text-paper outline-none focus:border-cyan font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-paper/15 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCouponModal(false)}
+                  className="rounded-full border border-paper/20 px-5 py-2 font-display text-xs uppercase text-paper/70 hover:text-paper"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCoupon}
+                  className="rounded-full bg-crim px-6 py-2.5 font-display text-xs uppercase text-ink font-bold hover:bg-cyan transition disabled:opacity-50"
+                >
+                  {savingCoupon ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
