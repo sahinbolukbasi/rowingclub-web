@@ -48,8 +48,52 @@ function ProductPage() {
   const prevImage = () => setImgIndex((i) => (i - 1 + images.length) % images.length);
   const nextImage = () => setImgIndex((i) => (i + 1) % images.length);
 
+  const productSchema = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": images.length ? images : [product.image],
+    "description": product.description || product.detail,
+    "sku": product.slug,
+    "brand": {
+      "@type": "Brand",
+      "name": "Kürek Kulübü",
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `https://rowingclub.co/product/${product.slug}`,
+      "priceCurrency": "TRY",
+      "price": discPrice,
+      "priceValidUntil": "2027-12-31",
+      "itemCondition": "https://schema.org/NewCondition",
+      "availability": product.isClosed ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "Kürek Kulübü",
+      },
+    },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Ana Sayfa", "item": "https://rowingclub.co" },
+      { "@type": "ListItem", "position": 2, "name": "Mağaza", "item": "https://rowingclub.co/shop" },
+      { "@type": "ListItem", "position": 3, "name": product.name, "item": `https://rowingclub.co/product/${product.slug}` },
+    ],
+  };
+
   return (
     <section className="px-6 py-12 lg:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <div className="mb-8">
         <Link to="/shop" className="text-[11px] uppercase tracking-[0.22em] text-paper/50 transition hover:text-paper">
           ← Mağazaya dön

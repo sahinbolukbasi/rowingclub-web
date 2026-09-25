@@ -311,27 +311,90 @@ function Footer() {
   );
 }
 
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Kürek Kulübü",
+  "url": "https://rowingclub.com",
+  "logo": "https://rowingclub.com/assets/favicon.svg",
+  "description": "Kürek sporu ve deniz küreği temalı premium giyim markası. Tişört, hoodie, sweatshirt, şapka ve çorap.",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "İstanbul",
+    "addressCountry": "TR"
+  },
+  "sameAs": [
+    "https://instagram.com/kurekkulubu",
+    "https://facebook.com/kurekkulubu"
+  ]
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Kürek Kulübü",
+  "url": "https://rowingclub.com",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://rowingclub.com/shop?search={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+};
+
+const clothingStoreSchema = {
+  "@context": "https://schema.org",
+  "@type": "ClothingStore",
+  "name": "Kürek Kulübü",
+  "image": "https://rowingclub.com/assets/hero-flatlay.jpg",
+  "@id": "https://rowingclub.com",
+  "url": "https://rowingclub.com",
+  "telephone": "+90 212 000 00 00",
+  "priceRange": "₺₺",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Boğaz İskelesi 4",
+    "addressLocality": "İstanbul",
+    "addressCountry": "TR"
+  }
+};
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Kürek Kulübü — Deniz Küreği Tişörtleri" },
+      { title: "Kürek Kulübü — Deniz Küreği Tişört, Hoodie, Sweatshirt, Şapka & Çorap" },
       {
         name: "description",
         content:
-          "Kürek Kulübü deniz küreği temalı tişörtleri tanıtır ve satar. Organik pamuk, sınırlı baskı, İstanbul.",
+          "Kürek Kulübü: Kürek sporu ve deniz tutkunları için özel tasarlanmış premium kürek tişörtleri, hoodieleri, sweatshirtleri, kürek şapkaları ve teknik çoraplar. Organik pamuk, dayanıklı baskı.",
       },
-      { property: "og:title", content: "Kürek Kulübü — Deniz Küreği Tişörtleri" },
+      {
+        name: "keywords",
+        content:
+          "kürek tişörtü, kürek giyim, deniz küreği tişört, kürek hoodie, kürek sweatshirt, kürek şapkası, kürek çorabı, rowing club t-shirt, rowing clothing, organik pamuk tişört, denizci giyim, rowing club istanbul, kürek kıyafetleri",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { property: "og:title", content: "Kürek Kulübü — Premium Deniz Küreği Giyim & Aksesuarları" },
       {
         property: "og:description",
         content:
-          "Deniz küreği tutkusunu giyilebilir kılan tişörtler. Organik pamuk, sınırlı baskı.",
+          "Deniz küreği tutkusunu giyilebilir kılan tişörtler, hoodieler, sweatshirtler, şapkalar ve çoraplar. Organik pamuk, sınırlı baskı. İstanbul.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Kürek Kulübü" },
+      { property: "og:locale", content: "tr_TR" },
+      { property: "og:url", content: "https://rowingclub.com" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Kürek Kulübü — Deniz Küreği Tişört, Hoodie & Aksesuar" },
+      {
+        name: "twitter:description",
+        content:
+          "Kürek sporu ve deniz tutkunları için özel tasarlanmış premium giyim koleksiyonu.",
+      },
     ],
     links: [
+      { rel: "canonical", href: "https://rowingclub.com" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -341,6 +404,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/assets/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/assets/favicon.ico", type: "image/x-icon" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(organizationSchema),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(websiteSchema),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(clothingStoreSchema),
+      },
     ],
   }),
   beforeLoad: async ({ location }) => {
@@ -372,12 +449,95 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function TrackingScripts() {
+  const [tracking, setTracking] = useState<{
+    gaMeasurementId?: string;
+    gtmContainerId?: string;
+    googleAdsId?: string;
+    metaPixelId?: string;
+  }>({});
+
+  useEffect(() => {
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data) {
+          setTracking({
+            gaMeasurementId: data.gaMeasurementId,
+            gtmContainerId: data.gtmContainerId,
+            googleAdsId: data.googleAdsId,
+            metaPixelId: data.metaPixelId,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // 1. GA4 & Google Ads Injection
+    const gaId = tracking.gaMeasurementId || tracking.googleAdsId;
+    if (gaId && typeof window !== "undefined" && !(window as any)._gaInjected) {
+      (window as any)._gaInjected = true;
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+      document.head.appendChild(script);
+
+      const inlineScript = document.createElement("script");
+      inlineScript.innerHTML = `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        ${tracking.gaMeasurementId ? `gtag('config', '${tracking.gaMeasurementId}');` : ""}
+        ${tracking.googleAdsId ? `gtag('config', '${tracking.googleAdsId}');` : ""}
+      `;
+      document.head.appendChild(inlineScript);
+    }
+
+    // 2. GTM Injection
+    if (tracking.gtmContainerId && typeof window !== "undefined" && !(window as any)._gtmInjected) {
+      (window as any)._gtmInjected = true;
+      const gtmScript = document.createElement("script");
+      gtmScript.innerHTML = `
+        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','${tracking.gtmContainerId}');
+      `;
+      document.head.appendChild(gtmScript);
+    }
+
+    // 3. Meta Pixel Injection
+    if (tracking.metaPixelId && typeof window !== "undefined" && !(window as any)._metaPixelInjected) {
+      (window as any)._metaPixelInjected = true;
+      const pixelScript = document.createElement("script");
+      pixelScript.innerHTML = `
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '${tracking.metaPixelId}');
+        fbq('track', 'PageView');
+      `;
+      document.head.appendChild(pixelScript);
+    }
+  }, [tracking]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <CartProvider>
+        <TrackingScripts />
         <div className="noise-overlay" />
         <div className="flex min-h-screen flex-col bg-ink text-paper">
           <Header />

@@ -44,6 +44,14 @@ const DEFAULT_CONTENT = {
   contactHours: "Pzt–Cmt · 09:00–18:00",
   announcement: "Türkiye genelinde ücretsiz kargo · İstanbul içi ertesi gün teslimat",
   footerText: "İstanbul Boğazı · Kürek Kulübü © 2026",
+  // SEO & Marketing Analytics
+  metaTitle: "Kürek Kulübü — Deniz Küreği Tişörtleri, Hoodie & Aksesuarları",
+  metaKeywords: "kürek tişörtü, kürek giyim, deniz küreği tişört, kürek hoodie, kürek sweatshirt, kürek şapkası, kürek çorabı, rowing club t-shirt, rowing clothing, organik pamuk tişört, denizci giyim, rowing club istanbul",
+  metaDescription: "Kürek Kulübü deniz küreği temalı tişört, hoodie, sweatshirt, şapka ve aksesuarları tasarlar ve satar. Organik pamuk, sınırlı baskı, özel denizci koleksiyonu.",
+  gaMeasurementId: "",
+  gtmContainerId: "",
+  googleAdsId: "",
+  metaPixelId: "",
 };
 
 const _client = new DynamoDBClient({ region: REGION });
@@ -513,6 +521,82 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     };
     await _doc.send(new PutCommand({ TableName: CONTENT_TABLE, Item: content }));
     return jsonResponse(content);
+  }
+
+  // ─── Dynamic Sitemap XML ──────────────────────────
+  if ((path === "/sitemap.xml" || path === "/api/sitemap.xml") && request.method === "GET") {
+    let products: any[] = [];
+    try {
+      const result = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
+      products = (result.Items ?? []).filter((p: any) => p.visible !== false && !p.isClosed);
+    } catch (e) {
+      console.warn("Could not fetch products for sitemap:", e);
+    }
+
+    const domain = "https://rowingclub.co";
+    const now = new Date().toISOString().split("T")[0];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+    
+    const staticPages = [
+      { loc: "/", priority: "1.0", changefreq: "daily" },
+      { loc: "/shop", priority: "0.9", changefreq: "daily" },
+      { loc: "/kulup", priority: "0.8", changefreq: "weekly" },
+      { loc: "/iletisim", priority: "0.7", changefreq: "monthly" },
+    ];
+
+    for (const page of staticPages) {
+      xml += `  <url>\n`;
+      xml += `    <loc>${domain}${page.loc}</loc>\n`;
+      xml += `    <lastmod>${now}</lastmod>\n`;
+      xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+      xml += `    <priority>${page.priority}</priority>\n`;
+      xml += `  </url>\n`;
+    }
+
+    for (const p of products) {
+      if (!p.slug) continue;
+      const prodUrl = `${domain}/product/${p.slug}`;
+      const prodDate = p.createdAt ? p.createdAt.split("T")[0] : now;
+      xml += `  <url>\n`;
+      xml += `    <loc>${prodUrl}</loc>\n`;
+      xml += `    <lastmod>${prodDate}</lastmod>\n`;
+      xml += `    <changefreq>weekly</changefreq>\n`;
+      xml += `    <priority>0.9</priority>\n`;
+      if (p.images && p.images[0]) {
+        const imgUrl = p.images[0].startsWith("http") ? p.images[0] : `${domain}${p.images[0]}`;
+        xml += `    <image:image>\n`;
+        xml += `      <image:loc>${imgUrl}</image:loc>\n`;
+        xml += `      <image:title>${(p.name || "").replace(/&/g, "&amp;")}</image:title>\n`;
+        xml += `    </image:image>\n`;
+      }
+      xml += `  </url>\n`;
+    }
+
+    xml += `</urlset>`;
+
+    return new Response(xml, {
+      status: 200,
+      headers: { "content-type": "application/xml; charset=utf-8" },
+    });
+  }
+
+  // ─── Dynamic Robots.txt ──────────────────────────
+  if ((path === "/robots.txt" || path === "/api/robots.txt") && request.method === "GET") {
+    const robots = `User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /checkout
+Disallow: /api/
+
+Sitemap: https://rowingclub.co/sitemap.xml
+Sitemap: https://d3t0vozwha6x31.cloudfront.net/sitemap.xml
+`;
+    return new Response(robots, {
+      status: 200,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
   }
 
   // ─── Config / sizes+colors ─────────────────────

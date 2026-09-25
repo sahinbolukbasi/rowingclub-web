@@ -1,0 +1,54 @@
+================================================================================
+KÜREK KULÜBÜ — CLOUDFLARE DNS KAYITLARI REHBERİ
+================================================================================
+
+Dosya 1: cloudflare-dns-import.txt
+-> Cloudflare > DNS > "Import" butonunu kullanarak bu dosyayı direkt yükleyebilirsiniz.
+
+Dosya 2: Manuel Ekleme (Add Record) İle Tek Tek Yapıştırma:
+
+--------------------------------------------------------------------------------
+1. KISMİ: AWS SSL SERTİFİKASI DOĞRULAMA KAYITLARI (Proxy: Gri Bulut / DNS Only)
+--------------------------------------------------------------------------------
+
+[KAYIT 1]
+Tür    : CNAME
+Ad     : _2ce2d201efa7c358c8fb22fa2a3980f3
+Hedef  : _678891dd9374d1b36ef85962d36cd875.wzccmgtwzk.acm-validations.aws.
+Proxy  : Gri Bulut (DNS Only)
+
+[KAYIT 2]
+Tür    : CNAME
+Ad     : _47f71d19ec36f91caefc1269a3292880.www
+Hedef  : _20d29cd501c450a14ec0d6622b50d944.wzccmgtwzk.acm-validations.aws.
+Proxy  : Gri Bulut (DNS Only)
+
+[KAYIT 3 - Alternatif Domain]
+Tür    : CNAME
+Ad     : _904fb0fe8d90ffdc311f2545ff265180
+Hedef  : _6ba9a3aa3f673355b802b43d6a4a040e.wzccmgtwzk.acm-validations.aws.
+Proxy  : Gri Bulut (DNS Only)
+
+[KAYIT 4 - Alternatif Domain WWW]
+Tür    : CNAME
+Ad     : _16365a2720d9d9e378678f1764666038.www
+Hedef  : _076eff748b2daba6a7822cb4607a7a0e.wzccmgtwzk.acm-validations.aws.
+Proxy  : Gri Bulut (DNS Only)
+
+
+--------------------------------------------------------------------------------
+2. KISMİ: SİTE YÖNLENDİRME KAYITLARI (AWS CloudFront)
+--------------------------------------------------------------------------------
+
+[KAYIT 5 - Ana Site]
+Tür    : CNAME
+Ad     : @
+Hedef  : d3t0vozwha6x31.cloudfront.net
+Proxy  : Turuncu Bulut (Proxied) veya Gri Bulut
+
+[KAYIT 6 - WWW]
+Tür    : CNAME
+Ad     : www
+Hedef  : d3t0vozwha6x31.cloudfront.net
+Proxy  : Turuncu Bulut (Proxied) veya Gri Bulut
+================================================================================

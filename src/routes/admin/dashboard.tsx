@@ -136,6 +136,13 @@ function AdminDashboard() {
     contactHours: "Pzt–Cmt · 09:00–18:00",
     announcement: "Türkiye genelinde ücretsiz kargo · İstanbul içi ertesi gün teslimat",
     footerText: "İstanbul Boğazı · Kürek Kulübü © 2026",
+    metaTitle: "Kürek Kulübü — Deniz Küreği Tişörtleri, Hoodie & Aksesuarları",
+    metaKeywords: "kürek tişörtü, kürek giyim, deniz küreği tişört, kürek hoodie, kürek sweatshirt, kürek şapkası, kürek çorabı, rowing club t-shirt, rowing clothing, organik pamuk tişört, denizci giyim, rowing club istanbul",
+    metaDescription: "Kürek Kulübü deniz küreği temalı tişört, hoodie, sweatshirt, şapka ve aksesuarları tasarlar ve satar. Organik pamuk, sınırlı baskı, özel denizci koleksiyonu.",
+    gaMeasurementId: "",
+    gtmContainerId: "",
+    googleAdsId: "",
+    metaPixelId: "",
   });
   const [savingContent, setSavingContent] = useState(false);
   const [contentSuccess, setContentSuccess] = useState(false);
@@ -1266,6 +1273,116 @@ Kürek Kulübü / rowingclub.co
                     onChange={(e) => setSiteContent({ ...siteContent, footerText: e.target.value })}
                     className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION E: SEO & ANALİTİK / REKLAM KODLARI */}
+            <div className="rounded-2xl border border-cyan/30 bg-ink/60 p-6 space-y-6 shadow-xl">
+              <div className="flex items-center justify-between border-b border-paper/15 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="size-2 rounded-full bg-cyan animate-pulse" />
+                  <h3 className="font-display text-lg uppercase text-paper tracking-wide">
+                    5. SEO Ayarları & Google / Meta Reklam Takip Kodları
+                  </h3>
+                </div>
+                <span className="text-[10px] uppercase tracking-widest text-cyan bg-cyan/10 px-3 py-1 rounded-full border border-cyan/30">
+                  Google Search & Discover Uyumlu
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    Site Başlığı (SEO Title Tag)
+                  </label>
+                  <input
+                    type="text"
+                    value={siteContent.metaTitle || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, metaTitle: e.target.value })}
+                    placeholder="Kürek Kulübü — Deniz Küreği Tişörtleri, Hoodie & Aksesuarları"
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    Meta Açıklaması (Google Arama Özet Yazısı)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={siteContent.metaDescription || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, metaDescription: e.target.value })}
+                    placeholder="Kürek Kulübü deniz küreği temalı tişört, hoodie, sweatshirt, şapka ve aksesuarları..."
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    Anahtar Kelimeler (Meta Keywords - Virgülle Ayrılmış)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={siteContent.metaKeywords || ""}
+                    onChange={(e) => setSiteContent({ ...siteContent, metaKeywords: e.target.value })}
+                    placeholder="kürek tişörtü, kürek giyim, deniz küreği tişört, kürek hoodie, kürek sweatshirt, kürek şapkası, kürek çorabı..."
+                    className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm text-paper outline-none focus:border-cyan"
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 pt-2 border-t border-paper/10">
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-cyan font-bold">
+                      Google Analytics 4 Ölçüm Kimliği (GA4 ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={siteContent.gaMeasurementId || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, gaMeasurementId: e.target.value.trim() })}
+                      placeholder="Örn: G-XXXXXXXXXX"
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm font-mono text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-cyan font-bold">
+                      Google Tag Manager Kapsayıcı ID (GTM ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={siteContent.gtmContainerId || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, gtmContainerId: e.target.value.trim() })}
+                      placeholder="Örn: GTM-XXXXXXX"
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm font-mono text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-cyan font-bold">
+                      Google Ads Dönüşüm Kimliği (Google Ads ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={siteContent.googleAdsId || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, googleAdsId: e.target.value.trim() })}
+                      placeholder="Örn: AW-XXXXXXXXX"
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm font-mono text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-cyan font-bold">
+                      Meta Pixel ID (Facebook / Instagram Reklam)
+                    </label>
+                    <input
+                      type="text"
+                      value={siteContent.metaPixelId || ""}
+                      onChange={(e) => setSiteContent({ ...siteContent, metaPixelId: e.target.value.trim() })}
+                      placeholder="Örn: 123456789012345"
+                      className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2 text-sm font-mono text-paper outline-none focus:border-cyan"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
