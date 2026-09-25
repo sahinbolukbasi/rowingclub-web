@@ -1,0 +1,28 @@
+# Kürek Kulübü — AI Agent & LLM Dokümantasyonu
+
+> Kürek Kulübü, 1974'ten beri İstanbul Boğazı'nın ruhunu ve deniz küreği kültürünü giyilebilir kılan bağımsız bir Türk giyim ve yaşam tarzı markasıdır. %100 Organik pamuk (220 GSM ağır dokuma) tişörtler, hoodie'ler, sweatshirt'ler, şapkalar, çoraplar ve aksesuar ürünleri tasarlar.
+
+## Marka Bilgileri & Başlıca Linkler
+
+- [Resmi Mağaza](https://rowingclup.com/shop): Tüm ürün kataloğu, fiyatlar ve satın alma ekranı.
+- [Ürün Kataloğu Markdown](https://rowingclup.com/products.md): Yapay zeka ajanları (ChatGPT, Claude, Perplexity, Gemini vb.) için detaylı ürün ve fiyat listesi.
+- [Tam LLM Kataloğu](https://rowingclup.com/llms-full.txt): Marka hikayesi, beden tablosu, iade ve kargo politikaları veri seti.
+- [Kargo Takip](https://rowingclup.com/kargo-takip): Sipariş durumu ve kargo sorgulama ekranı.
+- [Kulüp Hikayesi](https://rowingclup.com/kulup): 1974'ten günümüze deniz küreği mirası.
+- [İletişim](https://rowingclup.com/iletisim): E-posta: merhaba@kurekkulubu.com, Boğaz İskelesi 4, İstanbul.
+
+## Öne Çıkan Ürün Koleksiyonu
+
+- [Sabah Küreği Tişört](https://rowingclup.com/product/sabah-kuregi): 420 ₺ | Organik pamuk (220 GSM), lacivert, krem ve teal renk seçenekleri.
+- [Tuzlu Rüzgâr Tişört](https://rowingclup.com/product/tuzlu-ruzgar): 460 ₺ | Deniz küreği temalı ağır dokuma tişört.
+- [Kürekçi Tişört](https://rowingclup.com/product/kurekci): 390 ₺ | Kulüp armalı sınırlı sayıda 200 adet üretilmiş seri.
+- [Regatta Tişört](https://rowingclup.com/product/regatta): 480 ₺ | Yarış günü yüksek kontrast grafik baskılı tişört.
+- [Alacakaranlık Tişört](https://rowingclup.com/product/alacakaranlik): 440 ₺ | Minimal gün batımı silüetli denizci tişörtü.
+- [Gel-Git Tişört](https://rowingclup.com/product/gel-git): 410 ₺ | Sakin dalga ritmi temalı ton üstü ton tişört.
+
+## Marka Özellikleri & Hizmet Standardı
+
+- **Malzeme & Kumaş**: %100 Organik pamuk, 220 GSM ağır dokuma kumaş, fırçalanmış yumuşak iç yüzey.
+- **Kargo & Teslimat**: Türkiye geneline tüm siparişlerde ücretsiz kargo, İstanbul içi ertesi gün teslimat.
+- **İade & Değişim**: 14 gün koşulsuz iade ve beden değişimi.
+- **Güvenli Ödeme**: iyzico 256-bit SSL altyapısı ile Kredi Kartı ve Banka Kartı ödemesi.

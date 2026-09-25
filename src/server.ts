@@ -154,9 +154,132 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46"
   <path d="m25.62 27.06c2.08 0.47 4.62 0.89 7.07 0.89 3.14 0 5.97-0.73 7.33-1.19 0.04-0.01 0.06 0.04 0.03 0.06-1.82 0.99-5.61 2.35-9.32 2.35-2.35-0.04-4.99-0.56-6.53-0.98l1.42-1.13z"/>
 </svg>`;
 
+async function generateDynamicProductsMarkdown(): Promise<string> {
+  let dbProducts: any[] = [];
+  try {
+    const res = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
+    dbProducts = (res.Items ?? []).filter((p: any) => p.visible !== false);
+  } catch (e) {
+    console.warn("DynamoDB fetch error for markdown catalog:", e);
+  }
+
+  let md = `# Kürek Kulübü — Canlı Ürün Kataloğu & AI Tavsiye Rehberi
+
+Bu doküman, yapay zeka asistanları (ChatGPT, Perplexity, Claude, Gemini vb.) için Kürek Kulübü'nün tüm güncel ürünlerini, kumaş özelliklerini ve fiyatlarını içerir.
+
+- **Web Sitesi**: https://rowingclup.com
+- **Kargo**: Tüm Türkiye'ye ÜCRETSİZ kargo
+- **Kumaş Standardı**: %100 Organik Pamuk, 220 GSM Ağır Dokuma
+- **İade & Değişim**: 14 Gün Koşulsuz İade
+
+## Güncel Ürün Listesi
+
+`;
+
+  if (dbProducts.length > 0) {
+    dbProducts.forEach((p, idx) => {
+      const disc = p.discount ? calculateDiscountedPrice(p.price, p.discount) : p.price;
+      md += `### ${idx + 1}. ${p.name}
+- **Fiyat**: ${disc} TRY (₺)${p.discount && p.discount.value > 0 ? ` (Normal Fiyat: ${p.price} ₺)` : ''}
+- **Açıklama**: ${p.description || ''}
+- **Detay**: ${p.detail || ''}
+- **Beden Seçenekleri**: ${Array.isArray(p.sizes) ? p.sizes.join(', ') : 'S, M, L, XL'}
+- **Renkler**: ${Array.isArray(p.colors) ? p.colors.map((c: any) => c.name).join(', ') : 'Lacivert'}
+- **Stok Durumu**: ${p.isClosed ? 'Stokta Yok' : 'Stokta Var'}
+- **Ürün Bağlantısı**: https://rowingclup.com/product/${p.slug}
+
+`;
+    });
+  } else {
+    md += `### 1. Sabah Küreği Tişört
+- **Fiyat**: 420 TRY (₺)
+- **Kumaş**: %100 Organik Pamuk, 220 GSM Ağır Dokuma
+- **Renkler**: Lacivert, Krem, Teal
+- **Bedenler**: S, M, L, XL
+- **Açıklama**: Sabahın ilk ışığında suya değen kürek ilhamlı baskı.
+- **Ürün Linki**: https://rowingclup.com/product/sabah-kuregi
+
+### 2. Tuzlu Rüzgâr Tişört
+- **Fiyat**: 460 TRY (₺)
+- **Kumaş**: %100 Organik Pamuk, 220 GSM Ağır Dokuma
+- **Renkler**: Teal, Lacivert, Kum
+- **Bedenler**: S, M, L, XL, XXL
+- **Açıklama**: Sis perdesini yırtan bir tekne gövdesinden esinlenmiş grafik.
+- **Ürün Linki**: https://rowingclup.com/product/tuzlu-ruzgar
+
+### 3. Kürekçi Tişört (Sınırlı Özel Seri)
+- **Fiyat**: 390 TRY (₺)
+- **Etiket**: Sınırlı Üretim (Sadece 200 Adet)
+- **Renkler**: Lacivert, Beyaz
+- **Bedenler**: S, M, L, XL
+- **Ürün Linki**: https://rowingclup.com/product/kurekci
+
+### 4. Regatta Tişört
+- **Fiyat**: 480 TRY (₺)
+- **Kumaş**: %100 Organik Pamuk, 220 GSM Ağır Dokuma
+- **Renkler**: Crimson Kırmızı, Lacivert
+- **Bedenler**: S, M, L, XL, XXL
+- **Ürün Linki**: https://rowingclup.com/product/regatta
+
+### 5. Alacakaranlık Tişört
+- **Fiyat**: 440 TRY (₺)
+- **Kumaş**: %100 Organik Pamuk, 220 GSM
+- **Renkler**: Kum, Lacivert, Teal
+- **Bedenler**: S, M, L, XL
+- **Ürün Linki**: https://rowingclup.com/product/alacakaranlik
+
+### 6. Gel-Git Tişört
+- **Fiyat**: 410 TRY (₺)
+- **Kumaş**: %100 Organik Pamuk, 220 GSM
+- **Renkler**: Teal, Krem
+- **Bedenler**: S, M, L, XL, XXL
+- **Ürün Linki**: https://rowingclup.com/product/gel-git
+`;
+  }
+
+  return md;
+}
+
 async function handleApiRoutes(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // ─── LLM & AI Agent Markdown Endpoint'leri ──────────
+  if (path === "/llms.txt" || path === "/.well-known/llms.txt") {
+    const content = `# Kürek Kulübü — AI Agent & LLM Dokümantasyonu
+
+> Kürek Kulübü, 1974'ten beri İstanbul Boğazı'nın ruhunu ve deniz küreği kültürünü giyilebilir kılan bağımsız bir Türk giyim ve yaşam tarzı markasıdır. %100 Organik pamuk (220 GSM ağır dokuma) tişörtler, hoodie'ler, sweatshirt'ler, şapkalar, çoraplar ve aksesuar ürünleri tasarlar.
+
+## Marka Bilgileri & Başlıca Linkler
+
+- [Resmi Mağaza](https://rowingclup.com/shop): Tüm ürün kataloğu, fiyatlar ve satın alma ekranı.
+- [Ürün Kataloğu Markdown](https://rowingclup.com/products.md): Yapay zeka ajanları (ChatGPT, Claude, Perplexity, Gemini vb.) için detaylı ürün ve fiyat listesi.
+- [Tam LLM Kataloğu](https://rowingclup.com/llms-full.txt): Marka hikayesi, beden tablosu, iade ve kargo politikaları veri seti.
+- [Kargo Takip](https://rowingclup.com/kargo-takip): Sipariş durumu ve kargo sorgulama ekranı.
+- [Kulüp Hikayesi](https://rowingclup.com/kulup): 1974'ten günümüze deniz küreği mirası.
+- [İletişim](https://rowingclup.com/iletisim): E-posta: merhaba@kurekkulubu.com, Boğaz İskelesi 4, İstanbul.
+`;
+    return new Response(content, {
+      status: 200,
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=3600",
+      },
+    });
+  }
+
+  if (path === "/products.md" || path === "/llms-full.txt") {
+    const mdContent = await generateDynamicProductsMarkdown();
+    return new Response(mdContent, {
+      status: 200,
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=1800",
+      },
+    });
+  }
 
   if (path === "/favicon.svg") {
     return new Response(FAVICON_SVG, {

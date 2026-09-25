@@ -412,9 +412,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Kürek sporu ve deniz tutkunları için özel tasarlanmış premium giyim koleksiyonu.",
       },
+      { name: "ai-agent", content: "LLM discovery enabled. Product markdown catalog available at /products.md and /llms.txt" },
     ],
     links: [
       { rel: "canonical", href: "https://rowingclub.com" },
+      { rel: "alternate", type: "text/markdown", href: "/llms.txt", title: "LLM Agent Specification" },
+      { rel: "alternate", type: "text/markdown", href: "/products.md", title: "Kürek Kulübü Product Catalog (Markdown)" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

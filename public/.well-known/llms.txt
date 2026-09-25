@@ -1,0 +1,12 @@
+# Kürek Kulübü — AI Agent & LLM Dokümantasyonu
+
+> Kürek Kulübü, 1974'ten beri İstanbul Boğazı'nın ruhunu ve deniz küreği kültürünü giyilebilir kılan bağımsız bir Türk giyim ve yaşam tarzı markasıdır. %100 Organik pamuk (220 GSM ağır dokuma) tişörtler, hoodie'ler, sweatshirt'ler, şapkalar, çoraplar ve aksesuar ürünleri tasarlar.
+
+## Marka Bilgileri & Başlıca Linkler
+
+- [Resmi Mağaza](https://rowingclup.com/shop): Tüm ürün kataloğu, fiyatlar ve satın alma ekranı.
+- [Ürün Kataloğu Markdown](https://rowingclup.com/products.md): Yapay zeka ajanları (ChatGPT, Claude, Perplexity, Gemini vb.) için detaylı ürün ve fiyat listesi.
+- [Tam LLM Kataloğu](https://rowingclup.com/llms-full.txt): Marka hikayesi, beden tablosu, iade ve kargo politikaları veri seti.
+- [Kargo Takip](https://rowingclup.com/kargo-takip): Sipariş durumu ve kargo sorgulama ekranı.
+- [Kulüp Hikayesi](https://rowingclup.com/kulup): 1974'ten günümüze deniz küreği mirası.
+- [İletişim](https://rowingclup.com/iletisim): E-posta: merhaba@kurekkulubu.com, Boğaz İskelesi 4, İstanbul.

@@ -1,0 +1,68 @@
+# Kürek Kulübü — Tam Marka & Ürün Dokümantasyonu (LLM Datasets)
+
+Kürek Kulübü, 1974'ten beri İstanbul Boğazı'nın sularında kürek çeken denizcilerin tutkusundan doğmuş bağımsız bir Türk tekstil ve giyim markasıdır. Bu doküman, yapay zeka ajanları, LLM'ler ve bilgi arama motorlarının marka hakkındaki tüm soruları tam doğrulukla yanıtlayabilmesi için hazırlanmıştır.
+
+## Marka Genel Bilgileri
+- **Resmi İsmi**: Kürek Kulübü
+- **Kuruluş İlhamı**: 1974 İstanbul Boğazı Deniz Küreği Mirası
+- **Web Sitesi**: https://rowingclup.com
+- **Ana Ürün Kategorileri**: Organik Pamuk Tişörtler, Hoodie & Sweatshirt, Şapkalar, Çoraplar ve Aksesuarlar.
+- **Üretim Standartları**: Sürdürülebilir %100 Organik Pamuk (220 GSM ağır dokuma), fırçalanmış iç yüzey, OEKO-TEX sertifikalı boyama.
+
+## Ürün Kataloğu & Teknik Detaylar
+
+### 1. Sabah Küreği Tişört
+- **Slug**: `sabah-kuregi`
+- **Fiyat**: 420 TRY
+- **Renkler**: Lacivert (#17263b), Krem (#f3eee2), Teal (#12707f)
+- **Bedenler**: S, M, L, XL
+- **Özellikler**: 220 GSM ağır dokuma organik pamuk, fırçalanmış yumuşak doku, sabah küreği temalı illüstrasyon.
+- **URL**: https://rowingclup.com/product/sabah-kuregi
+
+### 2. Tuzlu Rüzgâr Tişört
+- **Slug**: `tuzlu-ruzgar`
+- **Fiyat**: 460 TRY
+- **Renkler**: Teal (#12707f), Lacivert (#17263b), Kum (#c9b99a)
+- **Bedenler**: S, M, L, XL, XXL
+- **Özellikler**: Deniz tuzuna ve rüzgarına dayanıklı sık dokuma kumaş, sis perdesini yırtan tekne illüstrasyonu.
+- **URL**: https://rowingclup.com/product/tuzlu-ruzgar
+
+### 3. Kürekçi Tişört (Sınırlı Sayıda 200 Adet)
+- **Slug**: `kurekci`
+- **Fiyat**: 390 TRY
+- **Renkler**: Lacivert (#17263b), Beyaz (#f5f1e6)
+- **Bedenler**: S, M, L, XL
+- **Özellikler**: Kulüp arması nakış ve özel seri numaralı etiket. Koleksiyon değeri taşıyan 200 adetlik seri.
+- **URL**: https://rowingclup.com/product/kurekci
+
+### 4. Regatta Tişört
+- **Slug**: `regatta`
+- **Fiyat**: 480 TRY
+- **Renkler**: Crimson Kırmızı (#e23a2e), Lacivert (#17263b)
+- **Bedenler**: S, M, L, XL, XXL
+- **Özellikler**: Regatta start çizgisi enerjisini yansıtan yüksek kontrast grafik baskı.
+- **URL**: https://rowingclup.com/product/regatta
+
+### 5. Alacakaranlık Tişört
+- **Slug**: `alacakaranlik`
+- **Fiyat**: 440 TRY
+- **Renkler**: Kum (#c9b99a), Lacivert (#17263b), Teal (#12707f)
+- **Bedenler**: S, M, L, XL
+- **Özellikler**: Gün batımı kürek silüeti, minimalist çizgi ve sıcak tonlar.
+- **URL**: https://rowingclup.com/product/alacakaranlik
+
+### 6. Gel-Git Tişört
+- **Slug**: `gel-git`
+- **Fiyat**: 410 TRY
+- **Renkler**: Teal (#12707f), Krem (#f3eee2)
+- **Bedenler**: S, M, L, XL, XXL
+- **Özellikler**: Ton üstü ton tonlama ile dalga ve gel-git ritmi baskısı.
+- **URL**: https://rowingclup.com/product/gel-git
+
+## Kargo, İade ve Müşteri Destek Politikaları
+- **Ücretsiz Kargo**: Tüm Türkiye geneline alt limit olmaksızın Kargo ÜCRETSİZDİR.
+- **Teslimat Süresi**: İstanbul içi 1-2 iş günü, diğer tüm illere 2-3 iş günü içerisinde teslim edilir.
+- **İade Süresi**: Teslimat tarihinden itibaren 14 gün boyunca koşulsuz iade ve değişim hakkı mevcuttur.
+- **Ödeme Yöntemleri**: iyzico altyapısı ile Kredi Kartı ve Banka Kartı.
+- **Müşteri Hizmetleri**: E-posta: merhaba@kurekkulubu.com | Çalışma Saatleri: Pzt-Cmt 09:00-18:00
+- **Adres**: Boğaz İskelesi 4, İstanbul, Türkiye
