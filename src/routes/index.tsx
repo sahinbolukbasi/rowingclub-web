@@ -242,7 +242,7 @@ function Index() {
             ) : (
               <>
                 Kürek<br />
-                <span className="text-crim">Kulübü</span>
+                <span className="text-[#ff5500]">Kulübü</span>
               </>
             )}
           </h1>

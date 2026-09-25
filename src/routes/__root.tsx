@@ -226,8 +226,8 @@ function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-paper/15 bg-ink/90 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 py-4 lg:px-10">
-        <Link to="/" className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46" className="text-paper">
+        <Link to="/" className="flex items-center gap-2 group">
+          <svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46" className="text-[#ff5500] transition-transform duration-300 group-hover:scale-105">
             <circle cx="27.3" cy="15.41" r="1.353" fill="currentColor"/>
             <path d="m25.85 16.85c-1.66 0.1-5.1 4.09-5.91 5.8h6.37l0.99-0.27 0.32 0.27h1.49c0.12 0 0.21-0.11 0.15-0.21-0.33-0.59-1.04-1.48-1.8-1.42-0.87 0.11-3.95 0.76-3.95 0.76l3.62-3.1 5.98 1.41-10.73 7.91c-0.87 0.08-1.71 0.37-2.43 0.85l-2.39 1.59c-0.21 0.13-0.19 0.43 0.01 0.56l1.27 0.78c0.19 0.12 0.44 0.11 0.62-0.01l2.38-1.72c0.58-0.41 1-0.94 1.23-1.52l10.83-8.06h0.35c0.25 0 0.43-0.19 0.43-0.44s-0.2-0.46-0.45-0.48l-0.33-0.04c-2.44-0.87-5.39-1.93-6.69-2.41-0.46-0.16-0.93-0.27-1.36-0.25z" fill="currentColor"/>
             <path d="m28.25 23.25c-8.18-0.02-20.37-0.1-25.1 0.22-0.11 0.01-0.11 0.08-0.01 0.11 2.16 0.73 8.17 1.49 12.37 1.48 3.4-0.07 6.35-0.21 9.8 0.35l2.94-2.16z" fill="currentColor"/>
@@ -235,7 +235,9 @@ function Header() {
             <path d="m23.62 26.65c-2.33-0.41-5.27-0.8-7.81-0.8-5.09 0-9.17 1.39-11.01 2.23-0.04 0.02-0.01 0.08 0.03 0.07 1.84-0.55 5.08-1.27 8.44-1.27 3.19 0 6.47 0.44 8.86 0.85l1.49-1.08z" fill="currentColor"/>
             <path d="m25.62 27.06c2.08 0.47 4.62 0.89 7.07 0.89 3.14 0 5.97-0.73 7.33-1.19 0.04-0.01 0.06 0.04 0.03 0.06-1.82 0.99-5.61 2.35-9.32 2.35-2.35-0.04-4.99-0.56-6.53-0.98l1.42-1.13z" fill="currentColor"/>
           </svg>
-          <span className="font-display text-xl tracking-wide">KÜREK KULÜBÜ</span>
+          <span className="font-display text-xl tracking-wide">
+            KÜREK <span className="text-[#ff5500]">KULÜBÜ</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-8 text-[11px] uppercase tracking-[0.22em] text-paper/70 md:flex">
@@ -293,8 +295,10 @@ function Footer() {
   return (
     <footer className="border-t border-paper/15 px-6 py-12 text-center lg:px-10">
       <div className="flex items-center justify-center gap-2">
-        <span className="size-2.5 rounded-full bg-crim" />
-        <span className="font-display text-xl tracking-wide">KÜREK KULÜBÜ</span>
+        <span className="size-2.5 rounded-full bg-[#ff5500]" />
+        <span className="font-display text-xl tracking-wide">
+          KÜREK <span className="text-[#ff5500]">KULÜBÜ</span>
+        </span>
       </div>
       <p className="mt-4 font-display text-[13px] uppercase tracking-[0.15em] text-paper/80">
         Kürek Kulübü · Deniz Küreği Tişörtleri · İstanbul
