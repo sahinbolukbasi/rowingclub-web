@@ -525,20 +525,24 @@ Kürek Kulübü / rowingclub.co
       </header>
 
       {/* Stats Cards */}
-      <section className="grid grid-cols-2 gap-4 px-6 py-6 lg:grid-cols-5 lg:px-10">
-        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm">
+      <section className="grid grid-cols-2 gap-4 px-6 py-6 lg:grid-cols-6 lg:px-10">
+        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm cursor-pointer hover:border-paper/30 transition" onClick={() => setTab("products")}>
           <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">Ürünler</p>
           <p className="mt-1 font-display text-2xl">{products.length}</p>
         </div>
-        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm">
+        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm cursor-pointer hover:border-paper/30 transition" onClick={() => setTab("orders")}>
           <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">Siparişler</p>
           <p className="mt-1 font-display text-2xl">{orders.length}</p>
         </div>
-        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm">
+        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm cursor-pointer hover:border-paper/30 transition" onClick={() => setTab("coupons")}>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">Kampanyalar</p>
+          <p className="mt-1 font-display text-2xl text-emerald-400">{coupons.length}</p>
+        </div>
+        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm cursor-pointer hover:border-paper/30 transition" onClick={() => setTab("orders")}>
           <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">Bekleyen Sipariş</p>
           <p className="mt-1 font-display text-2xl text-crim">{pendingOrders}</p>
         </div>
-        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm">
+        <div className="rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm cursor-pointer hover:border-paper/30 transition" onClick={() => setTab("contacts")}>
           <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50">Bekleyen Mesaj</p>
           <p className="mt-1 font-display text-2xl text-amber-400">{pendingContacts}</p>
         </div>
@@ -552,12 +556,13 @@ Kürek Kulübü / rowingclub.co
       <div className="flex gap-6 border-b border-paper/15 px-6 lg:px-10 overflow-x-auto">
         {(
           [
-            { id: "products", label: "Ürünler", badge: products.length },
-            { id: "orders", label: "Siparişler", badge: orders.length },
-            { id: "contacts", label: "Mesajlar", badge: pendingContacts > 0 ? `${pendingContacts} yeni` : contacts.length },
-            { id: "users", label: "Kullanıcılar", badge: users.length },
-            { id: "content", label: "Site Yazıları & Görselleri", badge: "İçerik" },
-          ] as const
+            { id: "products" as const, label: "Ürünler", badge: products.length },
+            { id: "orders" as const, label: "Siparişler", badge: orders.length },
+            { id: "coupons" as const, label: "🏷️ Kampanyalar & İndirimler", badge: coupons.length },
+            { id: "contacts" as const, label: "Mesajlar", badge: pendingContacts > 0 ? `${pendingContacts} yeni` : contacts.length },
+            { id: "users" as const, label: "Kullanıcılar", badge: users.length },
+            { id: "content" as const, label: "Site Yazıları & Görselleri", badge: "İçerik" },
+          ]
         ).map((t) => (
           <button
             key={t.id}
