@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import logoWhite from "@/assets/logo-white.png";
 import {
   getToken,
   isSessionLocallyValid,
@@ -832,8 +833,8 @@ Kürek Kulübü / rowingclub.co
     <div className="min-h-screen bg-ink text-paper">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-paper/15 px-6 py-4 lg:px-10">
-        <div className="flex items-center gap-3">
-          <span className="size-2.5 rounded-full bg-crim animate-pulse" />
+        <div className="flex items-center gap-2.5">
+          <img src={logoWhite} alt="Kürek Kulübü" width="34" height="34" style={{ objectFit: "contain" }} />
           <span className="font-display text-lg tracking-wide">Kürek Kulübü Yönetim Paneli</span>
         </div>
         <div className="flex items-center gap-4">

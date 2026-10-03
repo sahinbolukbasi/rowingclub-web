@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import logoWhite from "@/assets/logo-white.png";
 import {
   getToken,
   isSessionLocallyValid,
@@ -96,7 +97,15 @@ function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-ink px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-4 block size-3 rounded-full bg-crim" />
+          <div className="mb-4 flex justify-center">
+            <img
+              src={logoWhite}
+              alt="Kürek Kulübü"
+              width="72"
+              height="72"
+              style={{ objectFit: "contain" }}
+            />
+          </div>
           <h1 className="font-display text-2xl uppercase tracking-wide text-paper">
             Admin
           </h1>
