@@ -13,6 +13,7 @@ import {
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { createIyziPaymentLink } from "./lib/iyzico";
 
 const REGION = process.env.AWS_REGION ?? "eu-central-1";
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE ?? "kurek-products";
@@ -111,6 +112,46 @@ async function saveAllCategories(categories: any[]): Promise<void> {
       Item: {
         id: "site-categories",
         categories,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  );
+}
+
+async function getIyzicoSettings() {
+  try {
+    const res = await _doc.send(
+      new GetCommand({ TableName: CONTENT_TABLE, Key: { id: "iyzico-settings" } })
+    );
+    if (res.Item) {
+      return {
+        apiKey: res.Item.apiKey || process.env.IYZICO_API_KEY || "",
+        secretKey: res.Item.secretKey || process.env.IYZICO_SECRET_KEY || "",
+        mode: res.Item.mode || process.env.IYZICO_MODE || "production",
+        enabled: res.Item.enabled !== false,
+      };
+    }
+  } catch (e) {
+    console.warn("getIyzicoSettings error:", e);
+  }
+  return {
+    apiKey: process.env.IYZICO_API_KEY || "",
+    secretKey: process.env.IYZICO_SECRET_KEY || "",
+    mode: process.env.IYZICO_MODE || "production",
+    enabled: true,
+  };
+}
+
+async function saveIyzicoSettings(settings: any) {
+  await _doc.send(
+    new PutCommand({
+      TableName: CONTENT_TABLE,
+      Item: {
+        id: "iyzico-settings",
+        apiKey: settings.apiKey || "",
+        secretKey: settings.secretKey || "",
+        mode: settings.mode || "production",
+        enabled: settings.enabled !== false,
         updatedAt: new Date().toISOString(),
       },
     })
@@ -703,13 +744,48 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
   // ─── Orders ─────────────────────────────────────
   if (path === "/api/orders" && request.method === "POST") {
-    const body = await request.json() as any;
+    const body = (await request.json()) as any;
     // Clean, unique numeric order ID (e.g. 6 to 7 digits)
     const numericId = `${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+
+    let paymentUrl = "";
+    let paymentToken = "";
+    let paymentError = "";
+
+    try {
+      const iyziSettings = await getIyzicoSettings();
+      if (iyziSettings.enabled && iyziSettings.apiKey && iyziSettings.secretKey) {
+        const linkRes = await createIyziPaymentLink({
+          apiKey: iyziSettings.apiKey,
+          secretKey: iyziSettings.secretKey,
+          isSandbox: iyziSettings.mode === "sandbox",
+          orderId: numericId,
+          total: Number(body.total) || 0,
+          customerName: body.customerName,
+          items: body.items,
+        });
+
+        if (linkRes.success && linkRes.paymentUrl) {
+          paymentUrl = linkRes.paymentUrl;
+          paymentToken = linkRes.paymentToken || "";
+        } else if (linkRes.error) {
+          paymentError = linkRes.error;
+          console.warn("iyzico link generation warning:", linkRes.error);
+        }
+      }
+    } catch (err: any) {
+      console.warn("iyzico link exception:", err);
+      paymentError = err.message || String(err);
+    }
+
     const order = {
       id: numericId,
       ...body,
       status: "pending",
+      paymentUrl: paymentUrl || undefined,
+      paymentToken: paymentToken || undefined,
+      paymentProvider: paymentUrl ? "iyzilink" : undefined,
+      paymentError: paymentError || undefined,
       statusHistory: [{ status: "pending", date: new Date().toISOString() }],
       createdAt: new Date().toISOString(),
     };
@@ -834,6 +910,111 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
     }));
     return jsonResponse(orders);
+  }
+
+  if (
+    path.startsWith("/api/orders/") &&
+    path.endsWith("/generate-payment-link") &&
+    request.method === "POST"
+  ) {
+    const segments = path.split("/");
+    const orderId = segments[3];
+    try {
+      const getRes = await _doc.send(
+        new GetCommand({ TableName: ORDERS_TABLE, Key: { id: orderId } })
+      );
+      const order = getRes.Item;
+      if (!order) return jsonResponse({ error: "Sipariş bulunamadı" }, 404);
+
+      const iyziSettings = await getIyzicoSettings();
+      if (!iyziSettings.apiKey || !iyziSettings.secretKey) {
+        return jsonResponse(
+          { error: "iyzico API Key veya Secret Key tanımlı değil." },
+          400
+        );
+      }
+
+      const linkRes = await createIyziPaymentLink({
+        apiKey: iyziSettings.apiKey,
+        secretKey: iyziSettings.secretKey,
+        isSandbox: iyziSettings.mode === "sandbox",
+        orderId: order.id,
+        total: Number(order.total) || 0,
+        customerName: order.customerName,
+        items: typeof order.items === "string" ? JSON.parse(order.items) : order.items,
+      });
+
+      if (!linkRes.success || !linkRes.paymentUrl) {
+        return jsonResponse(
+          { error: linkRes.error || "Ödeme linki oluşturulamadı" },
+          500
+        );
+      }
+
+      const updated = {
+        ...order,
+        paymentUrl: linkRes.paymentUrl,
+        paymentToken: linkRes.paymentToken || "",
+        paymentProvider: "iyzilink",
+        updatedAt: new Date().toISOString(),
+      };
+      await _doc.send(new PutCommand({ TableName: ORDERS_TABLE, Item: updated }));
+      return jsonResponse({
+        success: true,
+        paymentUrl: linkRes.paymentUrl,
+        paymentToken: linkRes.paymentToken,
+      });
+    } catch (err: any) {
+      return jsonResponse({ error: err.message }, 500);
+    }
+  }
+
+  // ─── iyzico Settings ──────────────────────────────
+  if (path === "/api/admin/iyzico-settings" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const settings = await getIyzicoSettings();
+    return jsonResponse({
+      apiKey: settings.apiKey,
+      secretKey: settings.secretKey ? `${settings.secretKey.substring(0, 4)}...${settings.secretKey.slice(-4)}` : "",
+      hasSecretKey: Boolean(settings.secretKey),
+      mode: settings.mode,
+      enabled: settings.enabled,
+    });
+  }
+
+  if (path === "/api/admin/iyzico-settings" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json() as any;
+    const current = await getIyzicoSettings();
+    const updated = {
+      apiKey: body.apiKey !== undefined ? String(body.apiKey).trim() : current.apiKey,
+      secretKey: body.secretKey && !body.secretKey.includes("...") ? String(body.secretKey).trim() : current.secretKey,
+      mode: body.mode || current.mode || "production",
+      enabled: body.enabled !== undefined ? Boolean(body.enabled) : current.enabled,
+    };
+    await saveIyzicoSettings(updated);
+    return jsonResponse({ success: true, settings: { ...updated, secretKey: "******" } });
+  }
+
+  if (path === "/api/admin/iyzico-test" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json() as any;
+    const current = await getIyzicoSettings();
+    const apiKey = body.apiKey && !body.apiKey.includes("...") ? body.apiKey.trim() : current.apiKey;
+    const secretKey = body.secretKey && !body.secretKey.includes("...") ? body.secretKey.trim() : current.secretKey;
+    const mode = body.mode || current.mode || "production";
+
+    const testRes = await createIyziPaymentLink({
+      apiKey,
+      secretKey,
+      isSandbox: mode === "sandbox",
+      orderId: `test-${Math.floor(1000 + Math.random() * 9000)}`,
+      total: 1.00,
+      customerName: "Test Kullanıcı",
+      items: [{ name: "Kürek Kulübü Test Ürünü", qty: 1 }],
+    });
+
+    return jsonResponse(testRes);
   }
 
   // ─── Contacts ──────────────────────────────────

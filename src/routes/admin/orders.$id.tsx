@@ -49,6 +49,35 @@ function OrderDetailPage() {
   const [cargoCarrier, setCargoCarrier] = useState("Yurtiçi Kargo");
   const [savingCargo, setSavingCargo] = useState(false);
   const [cargoMsg, setCargoMsg] = useState("");
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [linkMsg, setLinkMsg] = useState("");
+
+  const handleGeneratePaymentLink = async () => {
+    setGeneratingLink(true);
+    setLinkMsg("");
+    try {
+      const res = await fetch(`/api/orders/${id}/generate-payment-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ödeme linki üretilemedi");
+      setLinkMsg("✓ iyzico ödeme linki başarıyla üretildi!");
+      await loadOrder();
+      setTimeout(() => setLinkMsg(""), 4000);
+    } catch (err: any) {
+      alert("Hata: " + err.message);
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyPaymentLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
 
   const loadOrder = async () => {
     try {
@@ -177,6 +206,94 @@ function OrderDetailPage() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* iyzico Ödeme Linki Kartı */}
+        <div className="rounded-2xl border border-cyan/40 bg-ink/70 p-6 space-y-4 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper/10 pb-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-cyan/20 text-cyan text-sm">💳</span>
+              <div>
+                <h2 className="font-display text-base uppercase text-paper tracking-wide">iyzico Ödeme Linki</h2>
+                <p className="text-xs text-paper/50">Sepet tutarına özel tek tıkla güvenli ödeme bağlantısı</p>
+              </div>
+            </div>
+            {order.paymentUrl ? (
+              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-[11px] font-semibold text-emerald-400">
+                ✓ Aktif Ödeme Linki Mevcut
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-[11px] font-semibold text-amber-400">
+                ⚠️ Henüz Ödeme Linki Üretilmedi
+              </span>
+            )}
+          </div>
+
+          {order.paymentUrl ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={order.paymentUrl}
+                  className="flex-1 min-w-[260px] rounded-xl border border-paper/20 bg-ink/90 px-3.5 py-2.5 text-xs font-mono text-cyan select-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => copyPaymentLink(order.paymentUrl)}
+                  className="rounded-xl border border-paper/20 bg-paper/5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-paper hover:bg-paper/15 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedLink ? "✓ Kopyalandı!" : "📋 Kopyala"}
+                </button>
+                <a
+                  href={order.paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl bg-cyan px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink hover:bg-paper transition flex items-center gap-1.5 shadow-md"
+                >
+                  ↗ Linki Aç
+                </a>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-paper/60">
+                <div className="flex items-center gap-4">
+                  <span>Sağlayıcı: <strong className="text-paper">{order.paymentProvider || "iyzilink"}</strong></span>
+                  {order.paymentToken && (
+                    <span className="font-mono text-[11px] text-paper/45">Token: {order.paymentToken}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={generatingLink}
+                  onClick={handleGeneratePaymentLink}
+                  className="text-xs text-cyan hover:underline transition font-semibold cursor-pointer"
+                >
+                  {generatingLink ? "Üretiliyor..." : "🔄 Yeni Link Oluştur / Güncelle"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-4 py-2">
+              <p className="text-xs text-paper/70 max-w-md">
+                Bu sipariş için henüz iyzico ödeme linki oluşturulmamış veya eski bir sipariş. Aşağıdaki butona tıklayarak ₺{order.total} tutarında tek tıkla iyzico ödeme linki üretebilirsiniz.
+              </p>
+              <button
+                type="button"
+                disabled={generatingLink}
+                onClick={handleGeneratePaymentLink}
+                className="rounded-full bg-cyan px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-ink hover:bg-paper transition disabled:opacity-50 shadow-md cursor-pointer"
+              >
+                {generatingLink ? "Link Oluşturuluyor..." : "⚡ iyzico Ödeme Linki Oluştur"}
+              </button>
+            </div>
+          )}
+
+          {linkMsg && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 text-xs text-emerald-400 font-semibold animate-pulse">
+              {linkMsg}
+            </div>
+          )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

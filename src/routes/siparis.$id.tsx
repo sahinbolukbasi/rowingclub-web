@@ -99,6 +99,31 @@ function SiparisTakipPage() {
         {formattedDate && <p className="mt-1 text-xs text-paper/40">{formattedDate}</p>}
       </div>
 
+      {/* iyzico Payment Banner (If pending and has paymentUrl) */}
+      {order.status === "pending" && order.paymentUrl && (
+        <div className="mb-8 rounded-2xl border border-cyan/40 bg-gradient-to-r from-cyan/15 via-ink/60 to-cyan/10 p-5 backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <span className="text-xl">💳</span>
+              <p className="font-display uppercase text-sm text-cyan font-bold tracking-wider">
+                iyzico Ödeme Linkiniz Hazır
+              </p>
+            </div>
+            <p className="text-xs text-paper/70">
+              Siparişinizin onaylanıp hazırlanmaya başlanması için <strong>₺{order.total}</strong> tutarındaki ödemenizi iyzico ile güvenle yapabilirsiniz.
+            </p>
+          </div>
+          <a
+            href={order.paymentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto text-center rounded-full bg-crim px-6 py-3 font-display text-xs font-bold uppercase tracking-[0.18em] text-ink transition hover:bg-cyan shadow-lg shadow-crim/20 whitespace-nowrap cursor-pointer"
+          >
+            Şimdi Öde ↗
+          </a>
+        </div>
+      )}
+
       {/* Progress Steps */}
       <div className="relative mb-12 rounded-2xl border border-paper/15 bg-ink/60 p-6 sm:p-8">
         <div className="relative pl-8">

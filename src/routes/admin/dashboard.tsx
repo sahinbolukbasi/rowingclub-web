@@ -117,10 +117,24 @@ function AdminDashboard() {
   const [editingCatLabel, setEditingCatLabel] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
   const [tab, setTab] = useState<
-    "products" | "orders" | "coupons" | "contacts" | "users" | "content" | "categories"
+    "products" | "orders" | "coupons" | "contacts" | "users" | "content" | "categories" | "iyzico"
   >("products");
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
+
+  // iyzico states
+  const [iyzicoSettings, setIyzicoSettings] = useState({
+    apiKey: "",
+    secretKey: "",
+    mode: "sandbox" as "sandbox" | "production",
+    enabled: false,
+  });
+  const [savingIyzico, setSavingIyzico] = useState(false);
+  const [testingIyzico, setTestingIyzico] = useState(false);
+  const [iyzicoTestResult, setIyzicoTestResult] = useState<any>(null);
+  const [iyzicoSaveMsg, setIyzicoSaveMsg] = useState("");
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   // Product filter, sort & duplicate states
   const [prodSearch, setProdSearch] = useState("");
@@ -255,6 +269,38 @@ function AdminDashboard() {
     }
   };
 
+  const handleSaveIyzico = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingIyzico(true);
+    setIyzicoSaveMsg("");
+    try {
+      const res = await apiPost("/iyzico-settings", iyzicoSettings);
+      setIyzicoSaveMsg("✓ iyzico ayarları başarıyla kaydedildi!");
+      if (res && res.settings) setIyzicoSettings(res.settings);
+      setTimeout(() => setIyzicoSaveMsg(""), 4000);
+    } catch (err: any) {
+      alert("Ayarlar kaydedilemedi: " + err.message);
+    } finally {
+      setSavingIyzico(false);
+    }
+  };
+
+  const handleTestIyzico = async () => {
+    setTestingIyzico(true);
+    setIyzicoTestResult(null);
+    try {
+      const res = await apiPost("/iyzico-test", {
+        ...iyzicoSettings,
+        amount: 100,
+      });
+      setIyzicoTestResult(res);
+    } catch (err: any) {
+      setIyzicoTestResult({ success: false, error: err.message });
+    } finally {
+      setTestingIyzico(false);
+    }
+  };
+
   const loadData = () => {
     apiGet("/products").then(setProducts).catch((e) => setError(e.message));
     apiGet("/orders").then(setOrders).catch((e) => setError(e.message));
@@ -262,6 +308,9 @@ function AdminDashboard() {
     apiGet("/users").then(setUsers).catch((e) => console.warn("Users error:", e));
     apiGet("/coupons").then(setCoupons).catch((e) => console.warn("Coupons error:", e));
     apiGet("/categories").then(setCategories).catch((e) => console.warn("Categories error:", e));
+    apiGet("/iyzico-settings").then((data) => {
+      if (data) setIyzicoSettings(data);
+    }).catch((e) => console.warn("iyzico settings error:", e));
     fetch("/api/content")
       .then((r) => r.json())
       .then((data) => {
@@ -753,6 +802,7 @@ Kürek Kulübü / rowingclub.co
             { id: "contacts" as const, label: "Mesajlar", badge: pendingContacts > 0 ? `${pendingContacts} yeni` : contacts.length },
             { id: "users" as const, label: "Kullanıcılar", badge: users.length },
             { id: "content" as const, label: "Site Yazıları & Görselleri", badge: "İçerik" },
+            { id: "iyzico" as const, label: "💳 iyzico Ödeme", badge: iyzicoSettings.enabled ? "Aktif" : "Pasif" },
           ]
         ).map((t) => (
           <button
@@ -1213,13 +1263,30 @@ Kürek Kulübü / rowingclub.co
                         {new Date(o.createdAt).toLocaleDateString("tr-TR")}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <Link
-                          to="/admin/orders/$id"
-                          params={{ id: o.id }}
-                          className="text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper"
-                        >
-                          Detay ↗
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          {o.paymentUrl && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(o.paymentUrl);
+                                setCopiedOrderId(o.id);
+                                setTimeout(() => setCopiedOrderId(null), 2000);
+                              }}
+                              title="iyzico Ödeme Linkini Kopyala"
+                              className="rounded bg-cyan/10 border border-cyan/30 px-2 py-0.5 text-[10px] text-cyan hover:bg-cyan hover:text-ink transition font-mono cursor-pointer"
+                            >
+                              {copiedOrderId === o.id ? "✓ Kopyalandı" : "🔗 Link"}
+                            </button>
+                          )}
+                          <Link
+                            to="/admin/orders/$id"
+                            params={{ id: o.id }}
+                            className="text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:text-paper"
+                          >
+                            Detay ↗
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2180,6 +2247,317 @@ Kürek Kulübü / rowingclub.co
               </table>
             </div>
           )}
+        </section>
+      )}
+
+      {/* ─── TAB: iyzico ÖDEME ENTEGRASYONU ─── */}
+      {tab === "iyzico" && (
+        <section className="px-6 py-6 lg:px-10 max-w-5xl mx-auto space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper/15 pb-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-cyan/20 text-cyan text-lg">
+                  💳
+                </span>
+                <h2 className="font-display text-2xl uppercase">iyzico Link ile Ödeme Entegrasyonu</h2>
+              </div>
+              <p className="mt-1 text-xs text-paper/60">
+                Sepet tutarına göre dinamik iyzico ödeme linki oluşturarak kredi kartı, banka kartı ve taksitli tahsilat sağlayın.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                  iyzicoSettings.enabled
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-paper/10 text-paper/40 border border-paper/20"
+                }`}
+              >
+                {iyzicoSettings.enabled ? "● Entegrasyon Aktif" : "○ Entegrasyon Pasif"}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-mono uppercase tracking-wider ${
+                  iyzicoSettings.mode === "production"
+                    ? "bg-crim/20 text-crim border border-crim/30"
+                    : "bg-cyan/20 text-cyan border border-cyan/30"
+                }`}
+              >
+                {iyzicoSettings.mode === "production" ? "⚡ Canlı Mod" : "🧪 Sandbox Test"}
+              </span>
+            </div>
+          </div>
+
+          {/* Çalışma Mantığı Açıklama Kartı */}
+          <div className="rounded-2xl border border-paper/15 bg-ink/40 p-5 shadow-lg">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan mb-3">
+              ⚡ Nasıl Çalışır?
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-4 text-xs text-paper/70">
+              <div className="rounded-xl border border-paper/10 bg-paper/5 p-3.5 space-y-1">
+                <div className="font-bold text-paper flex items-center gap-1.5">
+                  <span>🛒</span> 1. Sepet Hesabı
+                </div>
+                <p className="text-[11px] text-paper/50 leading-relaxed">
+                  Müşteri sepete ürün ekler, kupon girer ve net ödeme tutarı hesaplanır.
+                </p>
+              </div>
+              <div className="rounded-xl border border-paper/10 bg-paper/5 p-3.5 space-y-1">
+                <div className="font-bold text-paper flex items-center gap-1.5">
+                  <span>🔗</span> 2. Link Üretimi
+                </div>
+                <p className="text-[11px] text-paper/50 leading-relaxed">
+                  iyzico Link API'sine HMAC-SHA256 imzasıyla sipariş tutarı gönderilir ve anında özel link üretilir.
+                </p>
+              </div>
+              <div className="rounded-xl border border-paper/10 bg-paper/5 p-3.5 space-y-1">
+                <div className="font-bold text-paper flex items-center gap-1.5">
+                  <span>🔒</span> 3. 3D Güvenli Ödeme
+                </div>
+                <p className="text-[11px] text-paper/50 leading-relaxed">
+                  Müşteri iyzico arayüzünde kart bilgilerini girerek güvenle ödemeyi tamamlar.
+                </p>
+              </div>
+              <div className="rounded-xl border border-paper/10 bg-paper/5 p-3.5 space-y-1">
+                <div className="font-bold text-paper flex items-center gap-1.5">
+                  <span>📋</span> 4. Panel & Takip
+                </div>
+                <p className="text-[11px] text-paper/50 leading-relaxed">
+                  Oluşan link sipariş detayında saklanır, müşteri dilediğinde linke tekrar erişebilir.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Ayarlar Formu */}
+            <div className="lg:col-span-2 rounded-2xl border border-paper/15 bg-ink/50 p-6 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-paper/10 pb-3">
+                <h3 className="font-display text-base uppercase text-paper tracking-wide">
+                  iyzico API Bağlantı Ayarları
+                </h3>
+                <span className="text-[10px] text-paper/40 font-mono">IYZWSv2 Standardı</span>
+              </div>
+
+              {iyzicoSaveMsg && (
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-400 font-semibold animate-pulse">
+                  {iyzicoSaveMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveIyzico} className="space-y-4">
+                {/* Entegrasyon Aç/Kapa */}
+                <div className="flex items-center justify-between rounded-xl border border-paper/10 bg-paper/5 p-4">
+                  <div>
+                    <label className="text-sm font-bold text-paper block cursor-pointer">
+                      iyzico Link ile Ödemeyi Etkinleştir
+                    </label>
+                    <p className="text-xs text-paper/50">
+                      Aktif olduğunda sepet onayında otomatik olarak iyzico ödeme linki üretilir.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={iyzicoSettings.enabled}
+                    onChange={(e) =>
+                      setIyzicoSettings({ ...iyzicoSettings, enabled: e.target.checked })
+                    }
+                    className="size-5 accent-cyan cursor-pointer"
+                  />
+                </div>
+
+                {/* Mod Seçimi */}
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    Çalışma Ortamı (Mod)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIyzicoSettings({ ...iyzicoSettings, mode: "sandbox" })}
+                      className={`rounded-xl border p-3 text-left transition cursor-pointer ${
+                        iyzicoSettings.mode === "sandbox"
+                          ? "border-cyan bg-cyan/10 text-cyan"
+                          : "border-paper/20 bg-paper/5 text-paper/60 hover:text-paper"
+                      }`}
+                    >
+                      <div className="font-bold text-xs uppercase tracking-wider">🧪 Sandbox (Test)</div>
+                      <div className="text-[10px] opacity-70 mt-0.5 font-mono">sandbox-api.iyzipay.com</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIyzicoSettings({ ...iyzicoSettings, mode: "production" })}
+                      className={`rounded-xl border p-3 text-left transition cursor-pointer ${
+                        iyzicoSettings.mode === "production"
+                          ? "border-crim bg-crim/10 text-crim font-bold"
+                          : "border-paper/20 bg-paper/5 text-paper/60 hover:text-paper"
+                      }`}
+                    >
+                      <div className="font-bold text-xs uppercase tracking-wider">⚡ Canlı (Production)</div>
+                      <div className="text-[10px] opacity-70 mt-0.5 font-mono">api.iyzipay.com</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* API Key */}
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    API Key
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={iyzicoSettings.apiKey}
+                    onChange={(e) =>
+                      setIyzicoSettings({ ...iyzicoSettings, apiKey: e.target.value.trim() })
+                    }
+                    placeholder="sandbox-..."
+                    className="w-full rounded-xl border border-paper/20 bg-ink/90 px-3.5 py-2.5 text-xs font-mono text-paper outline-none focus:border-cyan transition"
+                  />
+                  <span className="text-[10px] text-paper/40 mt-1 block">
+                    iyzico Kontrol Paneli → Ayarlar → Firma Ayarları altındaki API Anahtarı
+                  </span>
+                </div>
+
+                {/* Secret Key */}
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/70 font-bold">
+                    Secret Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showSecretKey ? "text" : "password"}
+                      required
+                      value={iyzicoSettings.secretKey}
+                      onChange={(e) =>
+                        setIyzicoSettings({ ...iyzicoSettings, secretKey: e.target.value.trim() })
+                      }
+                      placeholder="sandbox-..."
+                      className="w-full rounded-xl border border-paper/20 bg-ink/90 px-3.5 py-2.5 pr-10 text-xs font-mono text-paper outline-none focus:border-cyan transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecretKey(!showSecretKey)}
+                      className="absolute right-3 top-2.5 text-xs text-paper/50 hover:text-paper cursor-pointer"
+                    >
+                      {showSecretKey ? "🙈 Gizle" : "👁️ Göster"}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-paper/40 mt-1 block">
+                    HMAC-SHA256 istek imzalamada kullanılan gizli anahtar
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-paper/10 flex items-center justify-between">
+                  <span className="text-xs text-paper/40">
+                    Değişiklikler anında sunucuda aktif olur.
+                  </span>
+                  <button
+                    type="submit"
+                    disabled={savingIyzico}
+                    className="rounded-full bg-cyan px-6 py-2.5 font-display text-xs uppercase tracking-wider text-ink font-bold hover:bg-paper transition disabled:opacity-50 shadow-md cursor-pointer"
+                  >
+                    {savingIyzico ? "Kaydediliyor..." : "Ayarları Kaydet"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Test ve Yardım Alanı */}
+            <div className="space-y-6">
+              {/* Test Bağlantısı Kartı */}
+              <div className="rounded-2xl border border-paper/15 bg-ink/50 p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 border-b border-paper/10 pb-3">
+                  <span className="size-2 rounded-full bg-cyan" />
+                  <h3 className="font-display text-sm uppercase text-paper tracking-wide">
+                    Entegrasyon Testi
+                  </h3>
+                </div>
+                <p className="text-xs text-paper/60 leading-relaxed">
+                  Girdiğiniz API anahtarlarıyla iyzico Link API'sine ₺100 tutarında bir test linki oluşturma isteği gönderin.
+                </p>
+
+                <button
+                  type="button"
+                  disabled={testingIyzico || !iyzicoSettings.apiKey || !iyzicoSettings.secretKey}
+                  onClick={handleTestIyzico}
+                  className="w-full rounded-xl border border-cyan/40 bg-cyan/10 py-3 text-xs font-bold uppercase tracking-wider text-cyan hover:bg-cyan hover:text-ink transition disabled:opacity-40 cursor-pointer shadow"
+                >
+                  {testingIyzico ? "Test İsteği Gönderiliyor..." : "🧪 Test Linki Üret (₺100)"}
+                </button>
+
+                {iyzicoTestResult && (
+                  <div
+                    className={`rounded-xl border p-4 text-xs space-y-2 ${
+                      iyzicoTestResult.success
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        : "border-crim/40 bg-crim/10 text-crim"
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      {iyzicoTestResult.success ? "✓ Başarılı: iyzico Bağlantısı Kuruldu!" : "✕ Test Başarısız"}
+                    </div>
+                    {iyzicoTestResult.error && (
+                      <p className="text-[11px] font-mono leading-relaxed opacity-90">
+                        {iyzicoTestResult.error}
+                      </p>
+                    )}
+                    {iyzicoTestResult.url && (
+                      <div className="space-y-2 pt-2 border-t border-emerald-500/20">
+                        <div className="text-[10px] uppercase tracking-wider text-emerald-400">Üretilen Link:</div>
+                        <input
+                          type="text"
+                          readOnly
+                          value={iyzicoTestResult.url}
+                          className="w-full rounded-lg bg-ink/80 px-2 py-1.5 text-[11px] font-mono text-cyan select-all outline-none"
+                        />
+                        <a
+                          href={iyzicoTestResult.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-[11px] text-cyan hover:underline font-semibold"
+                        >
+                          ↗ Linki Yeni Sekmede Test Et
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hızlı Bilgiler & Linkler */}
+              <div className="rounded-2xl border border-paper/15 bg-ink/40 p-5 space-y-3 text-xs text-paper/70">
+                <div className="font-bold text-paper flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                  <span>ℹ️</span> Yararlı Bağlantılar
+                </div>
+                <div className="space-y-2">
+                  <a
+                    href="https://sandbox-merchant.iyzipay.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-cyan hover:underline"
+                  >
+                    ↗ iyzico Sandbox Paneli (Test)
+                  </a>
+                  <a
+                    href="https://merchant.iyzipay.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-cyan hover:underline"
+                  >
+                    ↗ iyzico Canlı Yönetim Paneli
+                  </a>
+                  <a
+                    href="https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-cyan hover:underline"
+                  >
+                    ↗ iyzico Link API Dokümantasyonu
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       )}
 

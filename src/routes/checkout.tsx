@@ -143,7 +143,11 @@ function CheckoutPage() {
       router.navigate({
         to: "/payment/checkout",
         params: {},
-        search: { orderId: order.id, total: String(finalTotal) } as any,
+        search: {
+          orderId: order.id,
+          total: String(finalTotal),
+          paymentUrl: order.paymentUrl || "",
+        } as any,
       });
     } catch (err) {
       setError("Bir hata oluştu. Lütfen tekrar deneyin.");
