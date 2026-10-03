@@ -714,8 +714,6 @@ Kürek Kulübü / rowingclub.co
     }
   };
 
-  if (!authed) return null;
-
   const totalRevenue = orders.reduce((s: number, o: any) => s + (o.total || 0), 0);
   const pendingOrders = orders.filter((o: any) => o.status === "pending").length;
   const pendingContacts = contacts.filter((c: any) => !c.status || c.status === "pending").length;
@@ -796,6 +794,14 @@ Kürek Kulübü / rowingclub.co
       return 0;
     });
   }, [orders, orderSearch, orderStatus, orderSort]);
+
+  if (!authed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink text-paper">
+        <p className="text-paper/50 animate-pulse font-mono text-xs">Yönetim paneli yükleniyor...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ink text-paper">
