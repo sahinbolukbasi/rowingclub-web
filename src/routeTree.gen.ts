@@ -20,15 +20,12 @@ import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminLogoutRouteImport } from './routes/admin/logout'
 import { Route as PaymentCheckoutRouteImport } from './routes/payment/checkout'
-import { Route as ProductRouteImport } from './routes/product.'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as SiparisIdRouteImport } from './routes/siparis.$id'
 import { Route as AdminContentClubRouteImport } from './routes/admin/content/club'
 import { Route as AdminContentContactRouteImport } from './routes/admin/content/contact'
 import { Route as AdminContentHomepageRouteImport } from './routes/admin/content/homepage'
-import { Route as AdminOrdersRouteImport } from './routes/admin/orders.'
 import { Route as AdminOrdersIdRouteImport } from './routes/admin/orders.$id'
-import { Route as AdminProductsEditRouteImport } from './routes/admin/products..edit'
 import { Route as AdminProductsNewRouteImport } from './routes/admin/products.new'
 import { Route as AdminProductsIdEditRouteImport } from './routes/admin/products.$id.edit'
 
@@ -87,11 +84,6 @@ const PaymentCheckoutRoute = PaymentCheckoutRouteImport.update({
   path: '/payment/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProductRoute = ProductRouteImport.update({
-  id: '/product/',
-  path: '/product/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
@@ -117,19 +109,9 @@ const AdminContentHomepageRoute = AdminContentHomepageRouteImport.update({
   path: '/admin/content/homepage',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminOrdersRoute = AdminOrdersRouteImport.update({
-  id: '/admin/orders/',
-  path: '/admin/orders/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminOrdersIdRoute = AdminOrdersIdRouteImport.update({
   id: '/admin/orders/$id',
   path: '/admin/orders/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminProductsEditRoute = AdminProductsEditRouteImport.update({
-  id: '/admin/products/edit',
-  path: '/admin/products/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminProductsNewRoute = AdminProductsNewRouteImport.update({
@@ -150,7 +132,6 @@ export interface FileRoutesByFullPath {
   '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
-  '/product/': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/logout': typeof AdminLogoutRoute
@@ -158,12 +139,10 @@ export interface FileRoutesByFullPath {
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin/': typeof AdminIndexRoute
-  '/admin/orders/': typeof AdminOrdersRoute
   '/admin/content/club': typeof AdminContentClubRoute
   '/admin/content/contact': typeof AdminContentContactRoute
   '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
-  '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
   '/admin/products/$id/edit': typeof AdminProductsIdEditRoute
 }
@@ -174,7 +153,6 @@ export interface FileRoutesByTo {
   '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
-  '/product': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/logout': typeof AdminLogoutRoute
@@ -182,12 +160,10 @@ export interface FileRoutesByTo {
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin': typeof AdminIndexRoute
-  '/admin/orders': typeof AdminOrdersRoute
   '/admin/content/club': typeof AdminContentClubRoute
   '/admin/content/contact': typeof AdminContentContactRoute
   '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
-  '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
   '/admin/products/$id/edit': typeof AdminProductsIdEditRoute
 }
@@ -199,7 +175,6 @@ export interface FileRoutesById {
   '/kargo-takip': typeof KargoTakipRoute
   '/kulup': typeof KulupRoute
   '/shop': typeof ShopRoute
-  '/product/': typeof ProductRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/logout': typeof AdminLogoutRoute
@@ -207,12 +182,10 @@ export interface FileRoutesById {
   '/product/$slug': typeof ProductSlugRoute
   '/siparis/$id': typeof SiparisIdRoute
   '/admin/': typeof AdminIndexRoute
-  '/admin/orders/': typeof AdminOrdersRoute
   '/admin/content/club': typeof AdminContentClubRoute
   '/admin/content/contact': typeof AdminContentContactRoute
   '/admin/content/homepage': typeof AdminContentHomepageRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
-  '/admin/products/edit': typeof AdminProductsEditRoute
   '/admin/products/new': typeof AdminProductsNewRoute
   '/admin/products/$id/edit': typeof AdminProductsIdEditRoute
 }
@@ -225,7 +198,6 @@ export interface FileRouteTypes {
     | '/kargo-takip'
     | '/kulup'
     | '/shop'
-    | '/product/'
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/logout'
@@ -233,12 +205,10 @@ export interface FileRouteTypes {
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin/'
-    | '/admin/orders/'
     | '/admin/content/club'
     | '/admin/content/contact'
     | '/admin/content/homepage'
     | '/admin/orders/$id'
-    | '/admin/products/edit'
     | '/admin/products/new'
     | '/admin/products/$id/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -249,7 +219,6 @@ export interface FileRouteTypes {
     | '/kargo-takip'
     | '/kulup'
     | '/shop'
-    | '/product'
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/logout'
@@ -257,12 +226,10 @@ export interface FileRouteTypes {
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin'
-    | '/admin/orders'
     | '/admin/content/club'
     | '/admin/content/contact'
     | '/admin/content/homepage'
     | '/admin/orders/$id'
-    | '/admin/products/edit'
     | '/admin/products/new'
     | '/admin/products/$id/edit'
   id:
@@ -273,7 +240,6 @@ export interface FileRouteTypes {
     | '/kargo-takip'
     | '/kulup'
     | '/shop'
-    | '/product/'
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/logout'
@@ -281,12 +247,10 @@ export interface FileRouteTypes {
     | '/product/$slug'
     | '/siparis/$id'
     | '/admin/'
-    | '/admin/orders/'
     | '/admin/content/club'
     | '/admin/content/contact'
     | '/admin/content/homepage'
     | '/admin/orders/$id'
-    | '/admin/products/edit'
     | '/admin/products/new'
     | '/admin/products/$id/edit'
   fileRoutesById: FileRoutesById
@@ -298,7 +262,6 @@ export interface RootRouteChildren {
   KargoTakipRoute: typeof KargoTakipRoute
   KulupRoute: typeof KulupRoute
   ShopRoute: typeof ShopRoute
-  ProductRoute: typeof ProductRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminLogoutRoute: typeof AdminLogoutRoute
@@ -306,12 +269,10 @@ export interface RootRouteChildren {
   ProductSlugRoute: typeof ProductSlugRoute
   SiparisIdRoute: typeof SiparisIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminOrdersRoute: typeof AdminOrdersRoute
   AdminContentClubRoute: typeof AdminContentClubRoute
   AdminContentContactRoute: typeof AdminContentContactRoute
   AdminContentHomepageRoute: typeof AdminContentHomepageRoute
   AdminOrdersIdRoute: typeof AdminOrdersIdRoute
-  AdminProductsEditRoute: typeof AdminProductsEditRoute
   AdminProductsNewRoute: typeof AdminProductsNewRoute
   AdminProductsIdEditRoute: typeof AdminProductsIdEditRoute
 }
@@ -395,13 +356,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/product/': {
-      id: '/product/'
-      path: '/product'
-      fullPath: '/product/'
-      preLoaderRoute: typeof ProductRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/product/$slug': {
       id: '/product/$slug'
       path: '/product/$slug'
@@ -437,25 +391,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContentHomepageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/orders/': {
-      id: '/admin/orders/'
-      path: '/admin/orders'
-      fullPath: '/admin/orders/'
-      preLoaderRoute: typeof AdminOrdersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/orders/$id': {
       id: '/admin/orders/$id'
       path: '/admin/orders/$id'
       fullPath: '/admin/orders/$id'
       preLoaderRoute: typeof AdminOrdersIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/products/edit': {
-      id: '/admin/products/edit'
-      path: '/admin/products/edit'
-      fullPath: '/admin/products/edit'
-      preLoaderRoute: typeof AdminProductsEditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/products/new': {
@@ -482,7 +422,6 @@ const rootRouteChildren: RootRouteChildren = {
   KargoTakipRoute: KargoTakipRoute,
   KulupRoute: KulupRoute,
   ShopRoute: ShopRoute,
-  ProductRoute: ProductRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminLogoutRoute: AdminLogoutRoute,
@@ -490,12 +429,10 @@ const rootRouteChildren: RootRouteChildren = {
   ProductSlugRoute: ProductSlugRoute,
   SiparisIdRoute: SiparisIdRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminOrdersRoute: AdminOrdersRoute,
   AdminContentClubRoute: AdminContentClubRoute,
   AdminContentContactRoute: AdminContentContactRoute,
   AdminContentHomepageRoute: AdminContentHomepageRoute,
   AdminOrdersIdRoute: AdminOrdersIdRoute,
-  AdminProductsEditRoute: AdminProductsEditRoute,
   AdminProductsNewRoute: AdminProductsNewRoute,
   AdminProductsIdEditRoute: AdminProductsIdEditRoute,
 }

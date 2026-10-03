@@ -20,12 +20,14 @@ function SiparisTakipPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) {
+    const cleanId = (id || "").trim();
+    if (!cleanId) {
       setLoading(false);
       return;
     }
 
-    fetch(`/api/orders/${encodeURIComponent(id)}`)
+    setLoading(true);
+    fetch(`/api/orders/${encodeURIComponent(cleanId)}?_=${Date.now()}`)
       .then((r) => {
         if (!r.ok) return null;
         return r.json();
@@ -36,11 +38,12 @@ function SiparisTakipPage() {
         } else {
           setOrder(data);
         }
-        setLoading(false);
       })
       .catch((err) => {
         console.error("Fetch order error:", err);
         setOrder(null);
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, [id]);

@@ -55,7 +55,6 @@ function EditProductPage() {
   const [detail, setDetail] = useState("");
   const [tag, setTag] = useState("");
   const [images, setImages] = useState<string[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<{ name: string; hex: string }[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [stockPerSize, setStockPerSize] = useState<Record<string, string>>({});
@@ -63,6 +62,9 @@ function EditProductPage() {
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [isClosed, setIsClosed] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -78,6 +80,36 @@ function EditProductPage() {
       .catch((e) => console.error(e));
   }, []);
 
+  const applyProductData = (p: any) => {
+    setName(p.name || "");
+    setSlug(p.slug || "");
+    setCategory(p.category || "tisort");
+    setPrice(String(p.price || ""));
+    setDescription(p.description || "");
+    setDetail(p.detail || "");
+    setTag(p.tag || "");
+    setImages(Array.isArray(p.images) && p.images.length ? p.images : p.image ? [p.image] : []);
+    setIsClosed(p.isClosed === true);
+    setIsFeatured(p.isFeatured === true);
+    setVisible(p.visible !== false);
+
+    const colorNames = p.colors?.map((c: any) => c.name) ?? [];
+    setSelectedColors(colorNames.filter((n: string) => PREDEFINED_COLORS.some((pc) => pc.name === n)));
+    setCustomColors((p.colors ?? []).filter((c: any) => !PREDEFINED_COLORS.some((pc) => pc.name === c.name)));
+
+    const sizes = p.sizes ?? [];
+    setSelectedSizes(sizes);
+    const sps: Record<string, string> = {};
+    for (const s of sizes) sps[s] = String(p.stockPerSize?.[s] ?? "0");
+    setStockPerSize(sps);
+
+    if (p.discount) {
+      setDiscountEnabled(true);
+      setDiscountType(p.discount.type || "percentage");
+      setDiscountValue(String(p.discount.value || ""));
+    }
+  };
+
   useEffect(() => {
     if (!isSessionLocallyValid()) {
       clearAdminSession();
@@ -85,42 +117,51 @@ function EditProductPage() {
       return;
     }
     const token = getToken();
-    fetch(`${API_BASE}/products?t=${token}`)
-      .then((r) => r.json())
-      .then((prods) => {
+    setLoading(true);
+    setErrorMsg("");
+
+    const loadSingleProduct = async () => {
+      try {
+        // 1. Try single product endpoint
+        const singleRes = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
+          headers: { "x-admin-token": token },
+        });
+        if (singleRes.ok) {
+          const p = await singleRes.json();
+          if (p && !p.error) {
+            applyProductData(p);
+            return;
+          }
+        }
+
+        // 2. Fallback to all products list
+        const res = await fetch(`${API_BASE}/products?t=${token}&_=${Date.now()}`, {
+          headers: { "x-admin-token": token },
+        });
+        if (res.status === 401) {
+          clearAdminSession();
+          router.navigate({ to: "/admin" });
+          return;
+        }
+        const prods = await res.json();
         let p = Array.isArray(prods) ? prods.find((x: any) => x.id === id || x.slug === id) : null;
         if (!p) {
           p = staticProducts.find((x: any) => x.slug === id || (x as any).id === id);
         }
-        if (!p) return;
-        setName(p.name || "");
-        setSlug(p.slug || "");
-        setCategory(p.category || "tisort");
-        setPrice(String(p.price || ""));
-        setDescription(p.description || "");
-        setDetail(p.detail || "");
-        setTag(p.tag || "");
-        setImages(p.images?.length ? p.images : p.image ? [p.image] : []);
-        setIsClosed(p.isClosed === true);
-
-        const colorNames = p.colors?.map((c: any) => c.name) ?? [];
-        setSelectedColors(colorNames.filter((n: string) => PREDEFINED_COLORS.some((pc) => pc.name === n)));
-        setCustomColors((p.colors ?? []).filter((c: any) => !PREDEFINED_COLORS.some((pc) => pc.name === c.name)));
-
-        const sizes = p.sizes ?? [];
-        setSelectedSizes(sizes);
-        const sps: Record<string, string> = {};
-        for (const s of sizes) sps[s] = String(p.stockPerSize?.[s] ?? "0");
-        setStockPerSize(sps);
-
-        if (p.discount) {
-          setDiscountEnabled(true);
-          setDiscountType(p.discount.type || "percentage");
-          setDiscountValue(String(p.discount.value || ""));
+        if (p) {
+          applyProductData(p);
+        } else {
+          setErrorMsg(`"${id}" numaralı ürün veritabanında bulunamadı.`);
         }
+      } catch (err: any) {
+        console.error("Product load error:", err);
+        setErrorMsg("Ürün bilgileri yüklenemedi: " + (err.message || String(err)));
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    loadSingleProduct();
   }, [id]);
 
   const toggleColor = (n: string) =>
@@ -170,9 +211,12 @@ function EditProductPage() {
       const reader = new FileReader();
       reader.onload = async () => {
         const base64Data = reader.result as string;
-        const res = await fetch(`/api/admin/upload-image?t=${getToken()}`, {
+        const res = await fetch(`/api/admin/upload-image?t=${getToken()}&_=${Date.now()}`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-admin-token": getToken(),
+          },
           body: JSON.stringify({
             fileName: file.name,
             contentType: file.type,
@@ -196,6 +240,15 @@ function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      alert("Lütfen ürün adını girin.");
+      return;
+    }
+    if (!slug.trim()) {
+      alert("Lütfen geçerli bir slug belirleyin.");
+      return;
+    }
+
     extendAdminSession();
     setSaving(true);
     const token = getToken();
@@ -214,39 +267,71 @@ function EditProductPage() {
       if (v > 0) sps[s] = v;
     }
 
-    await fetch(`${API_BASE}/products/${id}?t=${token}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        slug,
-        name,
-        price: Number(price),
-        images: images.filter((i) => i.trim()),
-        description,
-        detail,
-        category,
-        tag: tag || null,
-        colors: allColors,
-        sizes: selectedSizes,
-        stockPerSize: sps,
-        isClosed: isClosed,
-        discount:
-          discountEnabled && Number(discountValue) > 0
-            ? { type: discountType, value: Number(discountValue) }
-            : null,
-      }),
-    });
+    const validImages = images.filter((i) => i.trim());
 
-    setSaving(false);
-    router.navigate({ to: "/admin/dashboard" });
+    try {
+      const res = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
+        body: JSON.stringify({
+          id,
+          slug: slug.trim(),
+          name: name.trim(),
+          price: Number(price) || 0,
+          image: validImages[0] || "",
+          images: validImages,
+          description: description.trim(),
+          detail: detail.trim(),
+          category,
+          tag: tag.trim() || null,
+          colors: allColors,
+          sizes: selectedSizes,
+          stockPerSize: sps,
+          isClosed: isClosed,
+          isFeatured: isFeatured,
+          visible: visible,
+          discount:
+            discountEnabled && Number(discountValue) > 0
+              ? { type: discountType, value: Number(discountValue) }
+              : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Ürün güncellenemedi (${res.status})`);
+      }
+
+      alert("✓ Ürün başarıyla güncellendi!");
+      router.navigate({ to: "/admin/dashboard" });
+    } catch (err: any) {
+      alert("Hata: " + (err.message || String(err)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
     if (!window.confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
     extendAdminSession();
     const token = getToken();
-    await fetch(`${API_BASE}/products/${id}?t=${token}`, { method: "DELETE" });
-    router.navigate({ to: "/admin/dashboard" });
+    try {
+      const res = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
+        method: "DELETE",
+        headers: { "x-admin-token": token },
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Silinemedi");
+      }
+      alert("✓ Ürün başarıyla silindi.");
+      router.navigate({ to: "/admin/dashboard" });
+    } catch (err: any) {
+      alert("Hata: " + (err.message || String(err)));
+    }
   };
 
   const handleDuplicate = async () => {
@@ -319,7 +404,22 @@ function EditProductPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink text-paper">
-        <p className="text-paper/50">Yükleniyor...</p>
+        <p className="text-paper/50 animate-pulse">Ürün yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-ink text-paper p-6 text-center">
+        <h1 className="font-display text-2xl uppercase text-crim">Ürün Bulunamadı</h1>
+        <p className="mt-2 text-sm text-paper/60">{errorMsg}</p>
+        <button
+          onClick={() => router.navigate({ to: "/admin/dashboard" })}
+          className="mt-6 rounded-full bg-crim px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-ink hover:bg-cyan transition cursor-pointer"
+        >
+          ← Panele Dön
+        </button>
       </div>
     );
   }
@@ -374,6 +474,60 @@ function EditProductPage() {
               checked={isClosed}
               onChange={(e) => setIsClosed(e.target.checked)}
               className="size-6 accent-crim cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {/* Ana Sayfada Ön Plana Çıkar */}
+        <div className="rounded-xl border border-paper/20 bg-ink/40 p-5">
+          <label className="flex cursor-pointer items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-base uppercase tracking-wider text-paper">
+                  ⭐ Ana Sayfada Ön Plana Çıkar
+                </span>
+                {isFeatured && (
+                  <span className="rounded-full bg-cyan/20 border border-cyan/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan">
+                    ÖNE ÇIKAN
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-paper/60 mt-1">
+                İşaretlendiğinde bu ürün ana sayfa vitrinindeki "Öne çıkan tişörtler" bölümünde ilk sırada gösterilir.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={isFeatured}
+              onChange={(e) => setIsFeatured(e.target.checked)}
+              className="size-6 accent-cyan cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {/* Ürün Görünürlüğü */}
+        <div className="rounded-xl border border-paper/20 bg-ink/40 p-5">
+          <label className="flex cursor-pointer items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-base uppercase tracking-wider text-paper">
+                  👁️ Sitede Yayında (Görünür)
+                </span>
+                {!visible && (
+                  <span className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+                    GİZLİ
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-paper/60 mt-1">
+                İşareti kaldırıldığında ürün müşterilere görünmez, sadece admin panelinde listelenir.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={visible}
+              onChange={(e) => setVisible(e.target.checked)}
+              className="size-6 accent-cyan cursor-pointer"
             />
           </label>
         </div>

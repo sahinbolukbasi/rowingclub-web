@@ -57,9 +57,13 @@ function OrderDetailPage() {
     setGeneratingLink(true);
     setLinkMsg("");
     try {
-      const res = await fetch(`/api/orders/${id}/generate-payment-link`, {
+      const token = getToken();
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}/generate-payment-link?t=${token}&_=${Date.now()}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ödeme linki üretilemedi");
@@ -85,18 +89,43 @@ function OrderDetailPage() {
       router.navigate({ to: "/admin" });
       return;
     }
+    setLoading(true);
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE}/orders?t=${token}`);
-      const orders = await res.json();
-      const found = Array.isArray(orders) ? orders.find((x: any) => String(x.id) === String(id)) : null;
-      if (found) {
-        setOrder(found);
-        setCargoCode(found.cargoTrackingCode || "");
-        setCargoCarrier(found.cargoCarrier || "Yurtiçi Kargo");
+      // 1. Try single order endpoint
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
+        headers: { "x-admin-token": token },
+      });
+      if (res.ok) {
+        const found = await res.json();
+        if (found && !found.error && found.id) {
+          setOrder(found);
+          setCargoCode(found.cargoTrackingCode || "");
+          setCargoCarrier(found.cargoCarrier || "Yurtiçi Kargo");
+          return;
+        }
       }
+
+      // 2. Fallback to admin orders list
+      const adminRes = await fetch(`${API_BASE}/orders?t=${token}&_=${Date.now()}`, {
+        headers: { "x-admin-token": token },
+      });
+      if (adminRes.ok) {
+        const orders = await adminRes.json();
+        const found = Array.isArray(orders)
+          ? orders.find((x: any) => String(x.id).trim().toLowerCase() === String(id).trim().toLowerCase())
+          : null;
+        if (found) {
+          setOrder(found);
+          setCargoCode(found.cargoTrackingCode || "");
+          setCargoCarrier(found.cargoCarrier || "Yurtiçi Kargo");
+          return;
+        }
+      }
+      setOrder(null);
     } catch (e) {
       console.error("Order load error:", e);
+      setOrder(null);
     } finally {
       setLoading(false);
     }
@@ -109,11 +138,19 @@ function OrderDetailPage() {
   const handleStatus = async (status: string) => {
     extendAdminSession();
     try {
-      await fetch(`/api/orders/${id}`, {
+      const token = getToken();
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
         method: "PUT",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Durum güncellenemedi");
+      }
       await loadOrder();
     } catch (e: any) {
       alert("Durum güncellenemedi: " + e.message);
@@ -125,15 +162,23 @@ function OrderDetailPage() {
     setSavingCargo(true);
     setCargoMsg("");
     try {
-      await fetch(`/api/orders/${id}`, {
+      const token = getToken();
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}?t=${token}&_=${Date.now()}`, {
         method: "PUT",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
         body: JSON.stringify({
           cargoTrackingCode: cargoCode.trim(),
           cargoCarrier: cargoCarrier.trim(),
           status: order?.status === "pending" || order?.status === "preparing" ? "shipped" : undefined,
         }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Kargo bilgisi kaydedilemedi");
+      }
       setCargoMsg("✓ Kargo takip bilgisi kaydedildi!");
       await loadOrder();
       setTimeout(() => setCargoMsg(""), 3000);

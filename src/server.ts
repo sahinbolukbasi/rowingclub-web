@@ -198,8 +198,25 @@ const DEFAULT_CONTENT = {
 };
 
 const _client = new DynamoDBClient({ region: REGION });
-const _doc = DynamoDBDocumentClient.from(_client);
+const _doc = DynamoDBDocumentClient.from(_client, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+  },
+});
 const _s3Client = new S3Client({ region: REGION });
+
+function safeParseItems(items: unknown): any[] {
+  if (Array.isArray(items)) return items;
+  if (typeof items === "string") {
+    try {
+      const parsed = JSON.parse(items);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 const ADMIN_TOKEN = "admin-token-kurek-kulubu";
 const AUTH_SECRET = process.env.AUTH_SECRET || "kurek-kulubu-jwt-secret-key-2026-auth";
@@ -503,14 +520,44 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse(result.Items ?? []);
   }
 
+  if (path.startsWith("/api/admin/products/") && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const id = decodeURIComponent(path.replace("/api/admin/products/", "").replace(/\/$/, ""));
+    if (!id) return jsonResponse({ error: "ID belirtilmedi" }, 400);
+
+    try {
+      const getRes = await _doc.send(new GetCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
+      if (getRes.Item) return jsonResponse(getRes.Item);
+    } catch {}
+
+    try {
+      const scanRes = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
+      const found = (scanRes.Items ?? []).find((p: any) => p.id === id || p.slug === id);
+      if (found) return jsonResponse(found);
+    } catch {}
+
+    return jsonResponse({ error: "Ürün bulunamadı" }, 404);
+  }
+
   if (path === "/api/admin/products" && request.method === "POST") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    const body = await request.json() as any;
+    const body = (await request.json()) as any;
+    if (!body.name || !body.slug) {
+      return jsonResponse({ error: "Ürün adı ve slug zorunludur" }, 400);
+    }
+    const images = Array.isArray(body.images)
+      ? body.images.filter((i: any) => typeof i === "string" && i.trim())
+      : [];
     const product = {
       id: genId("prod"),
       ...body,
-      visible: body.visible ?? true, // Default to visible
+      image: body.image || images[0] || "",
+      images,
+      visible: body.visible !== false,
+      isClosed: body.isClosed === true,
+      isFeatured: body.isFeatured === true,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     await _doc.send(new PutCommand({ TableName: PRODUCTS_TABLE, Item: product }));
     return jsonResponse(product);
@@ -518,24 +565,39 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
   if (path.startsWith("/api/admin/products/") && request.method === "PUT") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    const id = path.split("/").pop() || "";
+    const id = decodeURIComponent(path.replace("/api/admin/products/", "").replace(/\/$/, ""));
     const body = (await request.json()) as any;
 
     try {
-      // Fetch existing item if any
       let existingItem: any = null;
       try {
         const getRes = await _doc.send(new GetCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
         existingItem = getRes.Item;
-      } catch (e) {
-        /* ignore */
+      } catch {}
+
+      if (!existingItem) {
+        try {
+          const scanRes = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
+          existingItem = (scanRes.Items ?? []).find(
+            (p: any) => p.id === id || p.slug === id || (body.slug && p.slug === body.slug)
+          );
+        } catch {}
       }
 
-      // If not in DB yet, try to find matching product by id/slug in static products
+      const targetId = existingItem?.id || (id.startsWith("prod_") ? id : genId("prod"));
+      const images = Array.isArray(body.images)
+        ? body.images.filter((i: any) => typeof i === "string" && i.trim())
+        : (existingItem?.images || []);
+
       const updatedProduct = {
         ...(existingItem || {}),
         ...body,
-        id,
+        id: targetId,
+        image: body.image || images[0] || existingItem?.image || "",
+        images,
+        visible: body.visible !== undefined ? body.visible : (existingItem?.visible !== false),
+        isClosed: body.isClosed !== undefined ? body.isClosed : (existingItem?.isClosed === true),
+        isFeatured: body.isFeatured !== undefined ? body.isFeatured : (existingItem?.isFeatured === true),
         updatedAt: new Date().toISOString(),
       };
 
@@ -549,8 +611,18 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
   if (path.startsWith("/api/admin/products/") && request.method === "DELETE") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    const id = path.split("/").pop();
-    await _doc.send(new DeleteCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
+    const id = decodeURIComponent(path.replace("/api/admin/products/", "").replace(/\/$/, ""));
+    let targetId = id;
+    try {
+      const getRes = await _doc.send(new GetCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
+      if (!getRes.Item) {
+        const scanRes = await _doc.send(new ScanCommand({ TableName: PRODUCTS_TABLE }));
+        const found = (scanRes.Items ?? []).find((p: any) => p.id === id || p.slug === id);
+        if (found) targetId = found.id;
+      }
+    } catch {}
+
+    await _doc.send(new DeleteCommand({ TableName: PRODUCTS_TABLE, Key: { id: targetId } }));
     return jsonResponse({ success: true });
   }
 
@@ -861,30 +933,31 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse(order);
   }
 
-  if (path.startsWith("/api/orders/") && request.method === "GET") {
-    const id = path.split("/").pop() || "";
+  if (path.startsWith("/api/orders/") && !path.endsWith("/generate-payment-link") && request.method === "GET") {
+    const id = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, ""));
     try {
       const result = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
       if (result.Item) {
         const o = result.Item;
-        return jsonResponse({ ...o, items: typeof o.items === "string" ? JSON.parse(o.items) : o.items });
+        return jsonResponse({ ...o, items: safeParseItems(o.items) });
       }
     } catch (e) {
       console.warn("GetCommand error:", e);
     }
 
-    // Fallback: Scan by numeric id or email
+    // Fallback: Scan by numeric id or email or phone
     try {
       const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
       const found = (scanRes.Items ?? []).find(
         (o: any) =>
-          String(o.id) === String(id) ||
-          o.customerEmail?.toLowerCase().trim() === id.toLowerCase().trim()
+          String(o.id).trim().toLowerCase() === id.trim().toLowerCase() ||
+          o.customerEmail?.toLowerCase().trim() === id.toLowerCase().trim() ||
+          (o.customerPhone && id && o.customerPhone.replace(/\D/g, "") === id.replace(/\D/g, ""))
       );
       if (found) {
         return jsonResponse({
           ...found,
-          items: typeof found.items === "string" ? JSON.parse(found.items) : found.items,
+          items: safeParseItems(found.items),
         });
       }
     } catch (e) {
@@ -894,67 +967,90 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse({ error: "Sipariş bulunamadı" }, 404);
   }
 
-  if (path.startsWith("/api/orders/") && request.method === "PUT") {
-    const id = path.split("/").pop() || "";
-    const body = await request.json() as any;
-    const newStatus = body.status;
-    const updateExpr: string[] = [];
-    const exprAttrValues: Record<string, unknown> = {};
-    const exprAttrNames: Record<string, string> = {};
+  if (path.startsWith("/api/orders/") && !path.endsWith("/generate-payment-link") && request.method === "PUT") {
+    const id = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, ""));
+    const body = (await request.json()) as any;
 
-    if (newStatus) {
-      updateExpr.push("#status = :status");
-      exprAttrNames["#status"] = "status";
-      exprAttrValues[":status"] = newStatus;
+    try {
+      let existingOrder: any = null;
+      try {
+        const getRes = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
+        existingOrder = getRes.Item;
+      } catch {}
 
-      // Append to statusHistory
-      const now = new Date().toISOString();
-      updateExpr.push("#history = list_append(if_not_exists(#history, :empty), :newEntry)");
-      exprAttrNames["#history"] = "statusHistory";
-      exprAttrValues[":empty"] = [];
-      exprAttrValues[":newEntry"] = [{ status: newStatus, date: now }];
+      if (!existingOrder) {
+        const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
+        existingOrder = (scanRes.Items ?? []).find(
+          (o: any) => String(o.id).trim().toLowerCase() === id.trim().toLowerCase()
+        );
+      }
+
+      if (!existingOrder) {
+        return jsonResponse({ error: "Güncellenecek sipariş bulunamadı" }, 404);
+      }
+
+      const updatedHistory = Array.isArray(existingOrder.statusHistory)
+        ? [...existingOrder.statusHistory]
+        : [];
+
+      if (body.status && body.status !== existingOrder.status) {
+        updatedHistory.push({
+          status: body.status,
+          date: new Date().toISOString(),
+        });
+      }
+
+      const updatedOrder = {
+        ...existingOrder,
+        ...(body.status ? { status: body.status } : {}),
+        ...(body.paymentId !== undefined ? { paymentId: body.paymentId } : {}),
+        ...(body.cargoTrackingCode !== undefined ? { cargoTrackingCode: body.cargoTrackingCode } : {}),
+        ...(body.cargoCarrier !== undefined ? { cargoCarrier: body.cargoCarrier } : {}),
+        statusHistory: updatedHistory,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await _doc.send(new PutCommand({ TableName: ORDERS_TABLE, Item: updatedOrder }));
+      return jsonResponse({
+        ...updatedOrder,
+        items: safeParseItems(updatedOrder.items),
+      });
+    } catch (err: any) {
+      console.error("Order PUT error:", err);
+      return jsonResponse({ error: "Sipariş güncellenemedi: " + (err.message || String(err)) }, 500);
     }
-
-    if (body.paymentId !== undefined) {
-      updateExpr.push("#paymentId = :paymentId");
-      exprAttrNames["#paymentId"] = "paymentId";
-      exprAttrValues[":paymentId"] = body.paymentId;
-    }
-
-    if (body.cargoTrackingCode !== undefined) {
-      updateExpr.push("#cargoTrackingCode = :cargoTrackingCode");
-      exprAttrNames["#cargoTrackingCode"] = "cargoTrackingCode";
-      exprAttrValues[":cargoTrackingCode"] = body.cargoTrackingCode;
-    }
-
-    if (body.cargoCarrier !== undefined) {
-      updateExpr.push("#cargoCarrier = :cargoCarrier");
-      exprAttrNames["#cargoCarrier"] = "cargoCarrier";
-      exprAttrValues[":cargoCarrier"] = body.cargoCarrier;
-    }
-
-    if (updateExpr.length === 0) {
-      return jsonResponse({ error: "Güncellenecek alan belirtilmedi" }, 400);
-    }
-
-    const result = await _doc.send(new UpdateCommand({
-      TableName: ORDERS_TABLE,
-      Key: { id },
-      UpdateExpression: `SET ${updateExpr.join(", ")}`,
-      ExpressionAttributeNames: exprAttrNames,
-      ExpressionAttributeValues: exprAttrValues,
-      ReturnValues: "ALL_NEW",
-    }));
-    const updated = result.Attributes!;
-    return jsonResponse({ ...updated, items: typeof updated.items === "string" ? JSON.parse(updated.items) : updated.items });
   }
 
-  if (path === "/api/admin/orders" && request.method === "GET") {
+  if (path.startsWith("/api/admin/orders") && request.method === "GET") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const subPath = path.replace("/api/admin/orders", "").replace(/^\//, "").replace(/\/$/, "");
+
+    if (subPath) {
+      const id = decodeURIComponent(subPath);
+      try {
+        const getRes = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
+        if (getRes.Item) {
+          return jsonResponse({ ...getRes.Item, items: safeParseItems(getRes.Item.items) });
+        }
+      } catch {}
+
+      try {
+        const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
+        const found = (scanRes.Items ?? []).find(
+          (o: any) => String(o.id).trim().toLowerCase() === id.trim().toLowerCase()
+        );
+        if (found) {
+          return jsonResponse({ ...found, items: safeParseItems(found.items) });
+        }
+      } catch {}
+
+      return jsonResponse({ error: "Sipariş bulunamadı" }, 404);
+    }
+
     const result = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
     const orders = (result.Items ?? []).map((o) => ({
       ...o,
-      items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
+      items: safeParseItems(o.items),
     }));
     return jsonResponse(orders);
   }
@@ -964,13 +1060,24 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     path.endsWith("/generate-payment-link") &&
     request.method === "POST"
   ) {
-    const segments = path.split("/");
-    const orderId = segments[3];
+    const rawId = path.replace("/api/orders/", "").replace("/generate-payment-link", "").replace(/\/$/, "");
+    const orderId = decodeURIComponent(rawId);
     try {
-      const getRes = await _doc.send(
-        new GetCommand({ TableName: ORDERS_TABLE, Key: { id: orderId } })
-      );
-      const order = getRes.Item;
+      let order: any = null;
+      try {
+        const getRes = await _doc.send(
+          new GetCommand({ TableName: ORDERS_TABLE, Key: { id: orderId } })
+        );
+        order = getRes.Item;
+      } catch {}
+
+      if (!order) {
+        const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
+        order = (scanRes.Items ?? []).find(
+          (o: any) => String(o.id).trim().toLowerCase() === orderId.trim().toLowerCase()
+        );
+      }
+
       if (!order) return jsonResponse({ error: "Sipariş bulunamadı" }, 404);
 
       const iyziSettings = await getIyzicoSettings();

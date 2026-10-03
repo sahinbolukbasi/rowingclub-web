@@ -31,6 +31,24 @@ export const Route = createFileRoute("/admin/products/new")({
   component: NewProductPage,
 });
 
+function slugify(text: string): string {
+  const trMap: Record<string, string> = {
+    ç: "c", Ç: "c",
+    ğ: "g", Ğ: "g",
+    ı: "i", I: "i", İ: "i",
+    ö: "o", Ö: "o",
+    ş: "s", Ş: "s",
+    ü: "u", Ü: "u",
+  };
+  return text
+    .split("")
+    .map((c) => trMap[c] || c)
+    .join("")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const DEFAULT_CAT_OPTIONS = [
   { id: "tisort", label: "Tişört" },
   { id: "sweatshirt", label: "Sweatshirt & Hoodie" },
@@ -130,9 +148,12 @@ function NewProductPage() {
       const reader = new FileReader();
       reader.onload = async () => {
         const base64Data = reader.result as string;
-        const res = await fetch(`/api/admin/upload-image?t=${getToken()}`, {
+        const res = await fetch(`/api/admin/upload-image?t=${getToken()}&_=${Date.now()}`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-admin-token": getToken(),
+          },
           body: JSON.stringify({
             fileName: file.name,
             contentType: file.type,
@@ -156,6 +177,16 @@ function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      alert("Lütfen ürün adını girin.");
+      return;
+    }
+    const finalSlug = slug.trim() || slugify(name);
+    if (!finalSlug) {
+      alert("Lütfen geçerli bir slug belirleyin.");
+      return;
+    }
+
     extendAdminSession();
     setSaving(true);
     const token = getToken();
@@ -172,31 +203,50 @@ function NewProductPage() {
       if (v > 0) sps[size] = v;
     }
 
-    await fetch(`${API_BASE}/products?t=${token}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        slug,
-        name,
-        price: Number(price),
-        images: images.filter((i) => i.trim()),
-        description,
-        detail,
-        category,
-        tag: tag || null,
-        colors: allColors,
-        sizes: selectedSizes,
-        stockPerSize: sps,
-        isClosed: isClosed,
-        isFeatured: isFeatured,
-        discount:
-          discountEnabled && Number(discountValue) > 0
-            ? { type: discountType, value: Number(discountValue) }
-            : null,
-      }),
-    });
-    setSaving(false);
-    router.navigate({ to: "/admin/dashboard" });
+    const validImages = images.filter((i) => i.trim());
+
+    try {
+      const res = await fetch(`${API_BASE}/products?t=${token}&_=${Date.now()}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
+        body: JSON.stringify({
+          slug: finalSlug,
+          name: name.trim(),
+          price: Number(price) || 0,
+          image: validImages[0] || "",
+          images: validImages,
+          description: description.trim(),
+          detail: detail.trim(),
+          category,
+          tag: tag.trim() || null,
+          colors: allColors,
+          sizes: selectedSizes,
+          stockPerSize: sps,
+          isClosed: isClosed,
+          isFeatured: isFeatured,
+          visible: true,
+          discount:
+            discountEnabled && Number(discountValue) > 0
+              ? { type: discountType, value: Number(discountValue) }
+              : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Ürün eklenemedi (${res.status})`);
+      }
+
+      alert("✓ Ürün başarıyla eklendi!");
+      router.navigate({ to: "/admin/dashboard" });
+    } catch (err: any) {
+      alert("Hata: " + (err.message || String(err)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const discPrice =
@@ -292,12 +342,7 @@ function NewProductPage() {
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                setSlug(
-                  e.target.value
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/(^-|-$)/g, "")
-                );
+                setSlug(slugify(e.target.value));
               }}
               className="w-full rounded-lg border border-paper/20 bg-transparent px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
               required
