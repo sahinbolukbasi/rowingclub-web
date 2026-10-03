@@ -11,7 +11,7 @@ export const Route = createFileRoute("/shop")({
         content: "Deniz küreği temalı tişört, sweatshirt, şapka ve aksesuarlar. Organik pamuk, sınırlı baskı.",
       },
       { property: "og:title", content: "Mağaza — Kürek Kulübü" },
-      { property: "og:description", content: "Deniz küreği temalı özel koleksiyon." },
+      { property: "og:description", content: "Deniz küreği temalı tişört ve giyim koleksiyonu." },
     ],
   }),
   component: ShopPage,
@@ -34,11 +34,11 @@ function totalStock(p: any): number {
 }
 
 const CATEGORIES = [
-  { id: "all", label: "TÜM ÜRÜNLER" },
-  { id: "tisort", label: "TİŞÖRT" },
-  { id: "sweatshirt", label: "SWEATSHIRT & HOODIE" },
-  { id: "sapka", label: "ŞAPKA & BERE" },
-  { id: "aksesuar", label: "AKSESUAR" },
+  { id: "all", label: "Tüm Ürünler" },
+  { id: "tisort", label: "Tişört" },
+  { id: "sweatshirt", label: "Sweatshirt & Hoodie" },
+  { id: "sapka", label: "Şapka & Bere" },
+  { id: "aksesuar", label: "Aksesuar" },
 ];
 
 const SORT_OPTIONS = [
@@ -63,12 +63,11 @@ const COLOR_OPTIONS = [
   { name: "Crimson", hex: "#e23a2e" },
   { name: "Siyah", hex: "#000000" },
   { name: "Yeşil", hex: "#2d6a4f" },
-  { name: "Mavi", hex: "#1d4ed8" },
 ];
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
 
-function ProductCard({ product }: { product: any }) {
+function ProductCard({ product, compact = false }: { product: any; compact?: boolean }) {
   const { addItem, open: openCart } = useCart();
   const hasDiscount = product.discount && product.discount.value > 0;
   const discPrice = calcDiscountedPrice(product.price, product.discount);
@@ -87,7 +86,7 @@ function ProductCard({ product }: { product: any }) {
   return (
     <article className="group">
       <Link to="/product/$slug" params={{ slug: product.slug }}>
-        <div className="relative overflow-hidden rounded-xl bg-teal/20 border border-paper/10">
+        <div className="relative overflow-hidden rounded-lg bg-teal/20">
           <img
             src={product.images?.[0] || product.image || ""}
             alt={product.name}
@@ -97,74 +96,115 @@ function ProductCard({ product }: { product: any }) {
             }`}
           />
           {product.tag && (
-            <span className="absolute left-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-ink font-bold shadow-md">
+            <span
+              className={`absolute left-2.5 top-2.5 rounded-full bg-crim uppercase tracking-[0.18em] text-ink font-bold shadow-md ${
+                compact ? "px-2 py-0.5 text-[8px]" : "px-3 py-1 text-[10px]"
+              }`}
+            >
               {product.tag}
             </span>
           )}
           {isOutOfStock ? (
-            <span className="absolute right-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-paper shadow-md">
+            <span
+              className={`absolute right-2.5 top-2.5 rounded-full bg-crim font-bold uppercase tracking-[0.18em] text-paper shadow-md ${
+                compact ? "px-2 py-0.5 text-[8px]" : "px-3 py-1 text-[10px]"
+              }`}
+            >
               STOK YOK
             </span>
           ) : hasDiscount ? (
-            <span className="absolute right-3 top-3 rounded-full bg-crim px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white shadow-md">
+            <span
+              className={`absolute right-2.5 top-2.5 rounded-full bg-crim uppercase tracking-[0.18em] text-white font-bold shadow-md ${
+                compact ? "px-2 py-0.5 text-[8px]" : "px-3 py-1 text-[10px]"
+              }`}
+            >
               %{product.discount.value} İndirim
             </span>
           ) : null}
         </div>
       </Link>
-      <div className="mt-4 flex items-baseline justify-between">
-        <Link to="/product/$slug" params={{ slug: product.slug }}>
-          <h3 className="font-display text-xl uppercase tracking-wide group-hover:text-cyan transition-colors">
+
+      <div className={`flex items-baseline justify-between gap-1.5 ${compact ? "mt-2.5" : "mt-4"}`}>
+        <Link to="/product/$slug" params={{ slug: product.slug }} className="min-w-0">
+          <h3
+            className={`font-display uppercase transition-colors group-hover:text-cyan truncate ${
+              compact ? "text-xs sm:text-sm font-semibold" : "text-xl"
+            }`}
+            title={product.name}
+          >
             {product.name}
           </h3>
         </Link>
-        <div className="text-right">
+        <div className="text-right shrink-0">
           {hasDiscount ? (
             <>
-              <span className="text-xs text-paper/40 line-through block font-mono">
+              <span
+                className={`text-paper/40 line-through block ${
+                  compact ? "text-[10px]" : "text-sm"
+                }`}
+              >
                 ₺{product.price}
               </span>
-              <span className="text-sm text-crim font-bold font-mono">₺{discPrice}</span>
+              <span className={`text-crim font-bold ${compact ? "text-xs" : "text-sm"}`}>
+                ₺{discPrice}
+              </span>
             </>
           ) : (
-            <span className="text-sm text-cyan font-bold font-mono">₺{product.price}</span>
+            <span className={`text-cyan font-bold ${compact ? "text-xs" : "text-sm"}`}>
+              ₺{product.price}
+            </span>
           )}
         </div>
       </div>
-      <p className="mt-1 text-sm text-paper/60 line-clamp-2">{product.description}</p>
+
+      {!compact && (
+        <p className="mt-1 text-sm text-paper/60 line-clamp-2">{product.description}</p>
+      )}
+
       {isOutOfStock ? (
-        <div className="mt-3 flex gap-2">
+        <div className={`flex gap-1.5 ${compact ? "mt-2" : "mt-3"}`}>
           <Link
             to="/product/$slug"
             params={{ slug: product.slug }}
-            className="flex-1 rounded-full border border-paper/20 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-paper/70 transition hover:border-paper/50"
+            className={`flex-1 rounded-full border border-paper/20 text-center uppercase tracking-[0.2em] text-paper/70 transition hover:border-paper/50 ${
+              compact ? "py-1 text-[9px]" : "py-2 text-[11px]"
+            }`}
           >
             İncele
           </Link>
-          <span className="flex-1 rounded-full border border-crim/40 bg-crim/10 py-2 text-center text-[11px] font-bold uppercase tracking-[0.22em] text-crim">
+          <span
+            className={`flex-1 rounded-full border border-crim/40 bg-crim/10 text-center font-bold uppercase tracking-[0.2em] text-crim ${
+              compact ? "py-1 text-[9px]" : "py-2 text-[11px]"
+            }`}
+          >
             Stok Yok
           </span>
         </div>
       ) : (
-        <div className="mt-3 flex gap-2">
+        <div className={`flex gap-1.5 ${compact ? "mt-2" : "mt-3"}`}>
           <Link
             to="/product/$slug"
             params={{ slug: product.slug }}
-            className="flex-1 rounded-full border border-paper/20 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-paper/70 transition hover:border-paper/50"
+            className={`flex-1 rounded-full border border-paper/20 text-center uppercase tracking-[0.2em] text-paper/70 transition hover:border-paper/50 ${
+              compact ? "py-1 text-[9px]" : "py-2 text-[11px]"
+            }`}
           >
             İncele
           </Link>
           <div className="relative flex-1">
             <button
               onClick={() => setShowQuickBuy(!showQuickBuy)}
-              className="w-full rounded-full bg-crim py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-ink transition hover:bg-cyan shadow-md cursor-pointer"
+              className={`w-full rounded-full bg-crim uppercase tracking-[0.2em] text-ink transition hover:bg-cyan font-bold cursor-pointer ${
+                compact ? "py-1 text-[9px]" : "py-2 text-[11px]"
+              }`}
             >
               Hızlı al
             </button>
+
             {showQuickBuy && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowQuickBuy(false)} />
-                <div className="absolute bottom-full left-0 right-0 mb-2 z-50 rounded-xl border border-paper/20 bg-ink p-4 shadow-2xl shadow-ink/90 min-w-[200px]">
+                <div className="absolute bottom-full left-0 right-0 mb-2 z-50 rounded-lg border border-paper/15 bg-ink p-3 shadow-xl shadow-ink/80 min-w-[180px]">
                   <p className="text-[10px] uppercase tracking-[0.18em] text-paper/50 mb-2">
                     {hasDiscount ? (
                       <>
@@ -186,7 +226,7 @@ function ProductCard({ product }: { product: any }) {
                               setQColor(c.name);
                             }}
                             className={`size-5 rounded-full border-2 transition ${
-                              qColor === c.name ? "border-cyan ring-1 ring-cyan/40 scale-110" : "border-paper/30"
+                              qColor === c.name ? "border-cyan ring-1 ring-cyan/30" : "border-paper/30"
                             }`}
                             style={{ backgroundColor: c.hex }}
                             title={c.name}
@@ -200,7 +240,7 @@ function ProductCard({ product }: { product: any }) {
                       <p className="text-[9px] uppercase tracking-[0.15em] text-paper/40 mb-1">Beden</p>
                       <div className="flex flex-wrap gap-1">
                         {product.sizes
-                          .filter((s: string) => (product.stockPerSize?.[s] ?? 1) > 0)
+                          .filter((s: string) => (product.stockPerSize?.[s] ?? 0) > 0)
                           .map((s: string) => (
                             <button
                               key={s}
@@ -222,7 +262,7 @@ function ProductCard({ product }: { product: any }) {
                   )}
                   <button
                     onClick={handleQuickBuy}
-                    className="w-full rounded-full bg-crim py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-ink transition hover:bg-cyan mt-2 shadow-lg cursor-pointer"
+                    className="w-full rounded-full bg-crim py-1.5 text-[11px] uppercase tracking-[0.2em] text-ink transition hover:bg-cyan mt-1 cursor-pointer font-bold"
                   >
                     {hasDiscount ? `₺${discPrice} sepete ekle` : `₺${product.price} sepete ekle`}
                   </button>
@@ -238,9 +278,11 @@ function ProductCard({ product }: { product: any }) {
 
 function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(CATEGORIES);
   const [loading, setLoading] = useState(true);
 
-  // Filter States
+  // Filter & Sort States
+  const [viewMode, setViewMode] = useState<"3" | "6">("3");
   const [showFilters, setShowFilters] = useState(false);
   const [selCategory, setSelCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -255,16 +297,24 @@ function ShopPage() {
       .then((data) => {
         if (Array.isArray(data)) setProducts(data);
       })
-      .catch((e) => console.error("Error loading shop products:", e))
+      .catch((e) => console.error("Error loading products:", e))
       .finally(() => setLoading(false));
+
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) setCategories(data);
+      })
+      .catch((e) => console.error("Error loading categories:", e));
   }, []);
 
-  // Filter Logic
+  // Filtering Logic
   const filteredProducts = products.filter((p) => {
-    // Category
+    // Category Filter
     if (selCategory !== "all") {
       const pCat = String(p.category || "").toLowerCase();
       const pName = String(p.name || "").toLowerCase();
+
       if (selCategory === "tisort") {
         if (pCat !== "tisort" && !pName.includes("tişört") && !pName.includes("t-shirt")) return false;
       } else if (selCategory === "sweatshirt") {
@@ -278,22 +328,19 @@ function ShopPage() {
       }
     }
 
-    // Tag
-    if (selTag !== "all") {
-      if (p.tag !== selTag) return false;
-    }
+    // Tag Filter
+    if (selTag !== "all" && p.tag !== selTag) return false;
 
-    // Color
+    // Color Filter
     if (selColor) {
       const colors = p.colors ?? [];
       const hasColor = colors.some(
-        (c: any) =>
-          String(c.name).toLowerCase().trim() === selColor.toLowerCase().trim()
+        (c: any) => String(c.name).toLowerCase().trim() === selColor.toLowerCase().trim()
       );
       if (!hasColor) return false;
     }
 
-    // Size
+    // Size Filter
     if (selSize) {
       const sizes = p.sizes ?? [];
       if (!sizes.includes(selSize)) return false;
@@ -310,7 +357,6 @@ function ShopPage() {
     if (sortBy === "price-asc") return priceA - priceB;
     if (sortBy === "price-desc") return priceB - priceA;
     if (sortBy === "name-asc") return a.name.localeCompare(b.name, "tr");
-    // Default featured: closed last, featured first
     if (a.isClosed !== b.isClosed) return a.isClosed ? 1 : -1;
     if (a.isFeatured !== b.isFeatured) return b.isFeatured ? 1 : -1;
     return 0;
@@ -331,53 +377,84 @@ function ShopPage() {
     setSelSize("");
   };
 
-  const selectedCategoryLabel =
-    CATEGORIES.find((c) => c.id === selCategory)?.label ?? "TÜM ÜRÜNLER";
+  const getCategoryTitle = () => {
+    if (selCategory === "all") return "Tüm ürünler";
+    const found = categories.find((c) => c.id === selCategory);
+    return found ? found.label : "Tüm ürünler";
+  };
 
   return (
-    <section className="px-6 py-12 lg:px-10 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+    <section className="px-6 py-12 lg:px-10">
+      {/* Original Header Restored */}
+      <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
-          <p className="mb-2 text-[11px] uppercase tracking-[0.3em] text-cyan">— KOLEKSİYON</p>
-          <h1 className="font-display text-4xl uppercase md:text-6xl tracking-tight">
-            {selCategory === "all" ? "TÜM ÜRÜNLER" : selectedCategoryLabel}
-          </h1>
-          <p className="mt-2 max-w-md text-sm text-paper/60 leading-relaxed">
-            Her ürün organik pamuktan, küçük partiler halinde basılmıştır. Stok bitince yenilenene kadar bekleyin.
+          <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-cyan">— Koleksiyon</p>
+          <h1 className="font-display text-4xl uppercase md:text-6xl">{getCategoryTitle()}</h1>
+          <p className="mt-3 max-w-md text-sm text-paper/60">
+            Her ürün organik pamuktan, küçük partiler halinde üretilmiştir. Stok bitince yenilenene kadar bekleyin.
           </p>
         </div>
 
-        {/* Filter Toggle Button */}
-        <div className="flex items-center gap-3">
+        {/* Filter Toggle & View Switcher */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Görünüm Seçenekleri (3'lü ve 6'lı Görünüm) */}
+          <div className="flex items-center rounded-full border border-paper/20 bg-ink/60 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode("3")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-display uppercase tracking-wider transition cursor-pointer ${
+                viewMode === "3"
+                  ? "bg-cyan/20 text-cyan border border-cyan/40 font-bold shadow-sm"
+                  : "text-paper/50 hover:text-paper hover:bg-paper/5"
+              }`}
+              title="3'lü Görünüm"
+            >
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="5.5" height="18" rx="1" />
+                <rect x="9.25" y="3" width="5.5" height="18" rx="1" />
+                <rect x="16.5" y="3" width="5.5" height="18" rx="1" />
+              </svg>
+              <span>3'lü</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("6")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-display uppercase tracking-wider transition cursor-pointer ${
+                viewMode === "6"
+                  ? "bg-cyan/20 text-cyan border border-cyan/40 font-bold shadow-sm"
+                  : "text-paper/50 hover:text-paper hover:bg-paper/5"
+              }`}
+              title="6'lı Görünüm"
+            >
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <rect x="1.5" y="3" width="2.5" height="18" rx="0.5" />
+                <rect x="5.2" y="3" width="2.5" height="18" rx="0.5" />
+                <rect x="8.9" y="3" width="2.5" height="18" rx="0.5" />
+                <rect x="12.6" y="3" width="2.5" height="18" rx="0.5" />
+                <rect x="16.3" y="3" width="2.5" height="18" rx="0.5" />
+                <rect x="20" y="3" width="2.5" height="18" rx="0.5" />
+              </svg>
+              <span>6'lı</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2.5 rounded-full border px-6 py-3 font-display text-xs uppercase tracking-[0.18em] transition-all shadow-lg cursor-pointer ${
+            className={`flex items-center gap-2.5 rounded-full border px-6 py-2.5 font-display text-xs uppercase tracking-[0.18em] transition cursor-pointer shadow-md ${
               showFilters || activeFilterCount > 0
                 ? "border-cyan bg-cyan/15 text-cyan font-bold"
                 : "border-paper/20 bg-ink/60 text-paper/80 hover:border-paper/50 hover:text-paper"
             }`}
           >
-            <span>🎛️ FİLTRELE {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}</span>
-            <span className="text-xs transition-transform duration-300">
-              {showFilters ? "▲" : "▼"}
-            </span>
+            <span>Filtrele & Sırala {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}</span>
+            <span className="text-xs">{showFilters ? "▲" : "▼"}</span>
           </button>
-
-          {activeFilterCount > 0 && (
-            <button
-              onClick={resetFilters}
-              className="text-xs uppercase tracking-wider text-crim hover:underline cursor-pointer"
-            >
-              Filtreleri Temizle
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Category Quick Tabs */}
-      <div className="mb-8 flex gap-2 overflow-x-auto pb-2 border-b border-paper/15 no-scrollbar">
-        {CATEGORIES.map((cat) => (
+      {/* Category Pills Bar */}
+      <div className="mb-8 flex gap-2 overflow-x-auto pb-3 border-b border-paper/15 no-scrollbar">
+        {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelCategory(cat.id)}
@@ -392,28 +469,28 @@ function ShopPage() {
         ))}
       </div>
 
-      {/* Main Grid + Filter Panel Layout */}
-      <div className="grid gap-8 lg:grid-cols-4 items-start">
-        {/* Collapsible Filter Sidebar matching the user's design image */}
-        {showFilters && (
-          <aside className="lg:col-span-1 rounded-2xl border border-paper/15 bg-ink/70 p-6 shadow-2xl space-y-6 backdrop-blur-md sticky top-24">
-            <div className="flex items-center justify-between border-b border-paper/15 pb-3">
-              <h2 className="font-display text-xl uppercase tracking-wider text-paper">
-                FİLTRELE
-              </h2>
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={resetFilters}
-                  className="text-[10px] uppercase tracking-wider text-crim hover:underline font-bold cursor-pointer"
-                >
-                  Temizle ✕
-                </button>
-              )}
-            </div>
+      {/* Expandable Filter Box (Shown when toggled open, does not squeeze the original 3-column product grid) */}
+      {showFilters && (
+        <div className="mb-10 rounded-2xl border border-paper/15 bg-ink/80 p-6 shadow-2xl space-y-6 backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-paper/15 pb-3">
+            <h2 className="font-display text-lg uppercase tracking-wider text-paper flex items-center gap-2">
+              <span>Detaylı Filtreler</span>
+              <span className="text-xs text-paper/50 font-normal">({sortedProducts.length} ürün listeleniyor)</span>
+            </h2>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={resetFilters}
+                className="text-xs uppercase tracking-wider text-crim hover:underline font-bold cursor-pointer"
+              >
+                Tüm Filtreleri Temizle ✕
+              </button>
+            )}
+          </div>
 
-            {/* SIRALA */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* SIRALAMA */}
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-3">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-2.5">
                 SIRALA
               </p>
               <div className="space-y-1.5">
@@ -438,7 +515,7 @@ function ShopPage() {
 
             {/* ETİKET */}
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-3">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-2.5">
                 ETİKET
               </p>
               <div className="flex flex-wrap gap-2">
@@ -446,7 +523,7 @@ function ShopPage() {
                   <button
                     key={tag.id}
                     onClick={() => setSelTag(tag.id)}
-                    className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-wider font-semibold border transition cursor-pointer ${
+                    className={`rounded-full px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold border transition cursor-pointer ${
                       selTag === tag.id
                         ? "border-crim bg-crim/20 text-crim"
                         : "border-paper/20 bg-ink/40 text-paper/60 hover:border-paper/40 hover:text-paper"
@@ -460,7 +537,7 @@ function ShopPage() {
 
             {/* RENK */}
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-3">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-2.5">
                 RENK
               </p>
               <div className="flex flex-wrap gap-2">
@@ -470,7 +547,7 @@ function ShopPage() {
                     <button
                       key={c.name}
                       onClick={() => setSelColor(isSelected ? "" : c.name)}
-                      className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold border transition cursor-pointer ${
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold border transition cursor-pointer ${
                         isSelected
                           ? "border-cyan bg-cyan/20 text-cyan shadow-md"
                           : "border-paper/20 bg-ink/40 text-paper/70 hover:border-paper/40"
@@ -480,7 +557,7 @@ function ShopPage() {
                         className="size-3 rounded-full border border-paper/30 shadow-sm"
                         style={{ backgroundColor: c.hex }}
                       />
-                      <span>{c.name.toUpperCase()}</span>
+                      <span>{c.name}</span>
                     </button>
                   );
                 })}
@@ -489,7 +566,7 @@ function ShopPage() {
 
             {/* BEDEN */}
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-3">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-paper/50 font-semibold mb-2.5">
                 BEDEN
               </p>
               <div className="flex flex-wrap gap-2">
@@ -499,7 +576,7 @@ function ShopPage() {
                     <button
                       key={s}
                       onClick={() => setSelSize(isSelected ? "" : s)}
-                      className={`flex size-10 items-center justify-center rounded-xl border text-xs font-mono font-bold transition cursor-pointer ${
+                      className={`flex size-9 items-center justify-center rounded-xl border text-xs font-mono font-bold transition cursor-pointer ${
                         isSelected
                           ? "border-crim bg-crim text-ink shadow-md"
                           : "border-paper/20 bg-ink/40 text-paper/70 hover:border-paper/40"
@@ -511,55 +588,48 @@ function ShopPage() {
                 })}
               </div>
             </div>
-          </aside>
-        )}
-
-        {/* Product Grid Area */}
-        <div className={showFilters ? "lg:col-span-3" : "lg:col-span-4"}>
-          <div className="mb-4 flex items-center justify-between text-xs text-paper/50 border-b border-paper/10 pb-3">
-            <span className="font-mono uppercase tracking-wider font-semibold">
-              {sortedProducts.length} ÜRÜN BULUNDU
-            </span>
-            {activeFilterCount > 0 && (
-              <span className="text-cyan font-bold">
-                Aktif Filtre: {activeFilterCount}
-              </span>
-            )}
           </div>
-
-          {loading ? (
-            <div className="flex min-h-[40vh] items-center justify-center">
-              <p className="text-paper/50 animate-pulse">Ürünler yükleniyor...</p>
-            </div>
-          ) : sortedProducts.length === 0 ? (
-            <div className="flex min-h-[40vh] flex-col items-center justify-center text-center p-8 rounded-2xl border border-paper/15 bg-ink/40">
-              <span className="text-4xl mb-3">🔍</span>
-              <h3 className="font-display text-2xl uppercase text-paper mb-2">
-                Filtrelere Uygun Ürün Bulunamadı
-              </h3>
-              <p className="text-xs text-paper/60 max-w-sm mb-4">
-                Seçtiğiniz filtre kombinasyonuna ait ürün bulunmuyor. Filtreleri temizleyerek tüm koleksiyonu inceleyebilirsiniz.
-              </p>
-              <button
-                onClick={resetFilters}
-                className="rounded-full bg-crim px-6 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-ink transition hover:bg-cyan cursor-pointer"
-              >
-                Filtreleri Sıfırla
-              </button>
-            </div>
-          ) : (
-            <div
-              className={`grid gap-6 sm:grid-cols-2 ${
-                showFilters ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"
-              }`}
-            >
-              {sortedProducts.map((product) => (
-                <ProductCard key={product.slug || product.id} product={product} />
-              ))}
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
+      {/* Original Product Grid Restored (grid gap-6 sm:grid-cols-2 lg:grid-cols-3) */}
+      {loading ? (
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <p className="text-paper/50 animate-pulse">Ürünler yükleniyor...</p>
+        </div>
+      ) : sortedProducts.length === 0 ? (
+        <div className="flex min-h-[40vh] flex-col items-center justify-center text-center p-8 rounded-2xl border border-paper/15 bg-ink/40">
+          <span className="text-4xl mb-3">🔍</span>
+          <h3 className="font-display text-2xl uppercase text-paper mb-2">
+            Filtrelere Uygun Ürün Bulunamadı
+          </h3>
+          <p className="text-xs text-paper/60 max-w-sm mb-4">
+            Seçtiğiniz filtre kriterlerine uygun ürün bulunmuyor. Filtreleri sıfırlayarak tüm koleksiyonu inceleyebilirsiniz.
+          </p>
+          <button
+            onClick={resetFilters}
+            className="rounded-full bg-crim px-6 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-ink transition hover:bg-cyan cursor-pointer"
+          >
+            Filtreleri Sıfırla
+          </button>
+        </div>
+      ) : (
+        <div
+          className={
+            viewMode === "6"
+              ? "grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+              : "grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          }
+        >
+          {sortedProducts.map((product) => (
+            <ProductCard
+              key={product.slug || product.id}
+              product={product}
+              compact={viewMode === "6"}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

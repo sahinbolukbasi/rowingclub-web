@@ -251,7 +251,7 @@ function Header() {
             <path d="m25.62 27.06c2.08 0.47 4.62 0.89 7.07 0.89 3.14 0 5.97-0.73 7.33-1.19 0.04-0.01 0.06 0.04 0.03 0.06-1.82 0.99-5.61 2.35-9.32 2.35-2.35-0.04-4.99-0.56-6.53-0.98l1.42-1.13z" fill="currentColor"/>
           </svg>
           <span className="font-display text-xl tracking-wide">
-            KÜREK <span className="text-[#ff5500]">KULÜBÜ</span>
+            ROWING <span className="text-[#ff5500]">CLUB</span>
           </span>
         </Link>
 
@@ -260,7 +260,7 @@ function Header() {
             Mağaza
           </Link>
           <Link to="/kulup" className="transition hover:text-paper">
-            Kulüp
+            Hakkımızda
           </Link>
           <Link to="/iletisim" className="transition hover:text-paper">
             İletişim
@@ -295,7 +295,7 @@ function Header() {
             Mağaza
           </Link>
           <Link to="/kulup" onClick={() => setMenuOpen(false)} className="py-2 transition hover:text-paper">
-            Kulüp
+            Hakkımızda
           </Link>
           <Link to="/iletisim" onClick={() => setMenuOpen(false)} className="py-2 transition hover:text-paper">
             İletişim
@@ -312,7 +312,7 @@ function Footer() {
       <div className="flex items-center justify-center gap-2">
         <span className="size-2.5 rounded-full bg-[#ff5500]" />
         <span className="font-display text-xl tracking-wide">
-          KÜREK <span className="text-[#ff5500]">KULÜBÜ</span>
+          ROWING <span className="text-[#ff5500]">CLUB</span>
         </span>
       </div>
       <p className="mt-4 font-display text-[13px] uppercase tracking-[0.15em] text-paper/80">
@@ -323,7 +323,7 @@ function Footer() {
       </p>
       <div className="mt-6 flex justify-center gap-6 text-[11px] uppercase tracking-[0.18em] text-paper/50">
         <Link to="/shop" className="transition hover:text-paper">Mağaza</Link>
-        <Link to="/kulup" className="transition hover:text-paper">Kulüp</Link>
+        <Link to="/kulup" className="transition hover:text-paper">Hakkımızda</Link>
         <Link to="/kargo-takip" className="transition hover:text-paper font-semibold text-cyan">Kargo Takip</Link>
         <Link to="/iletisim" className="transition hover:text-paper">İletişim</Link>
       </div>
@@ -425,8 +425,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700&display=swap",
       },
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/assets/favicon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/assets/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/favicon.svg" },
     ],
     scripts: [
       {

@@ -34,6 +34,15 @@ export const Route = createFileRoute("/admin/products/$id/edit")({
   component: EditProductPage,
 });
 
+const DEFAULT_CAT_OPTIONS = [
+  { id: "tisort", label: "Tişört" },
+  { id: "sweatshirt", label: "Sweatshirt & Hoodie" },
+  { id: "sapka", label: "Şapka & Bere" },
+  { id: "aksesuar", label: "Aksesuar" },
+  { id: "bros", label: "Broş" },
+  { id: "tayt", label: "Tayt" },
+];
+
 function EditProductPage() {
   const { id } = Route.useParams();
   const router = useRouter();
@@ -41,6 +50,7 @@ function EditProductPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("tisort");
+  const [categoriesOptions, setCategoriesOptions] = useState<any[]>(DEFAULT_CAT_OPTIONS);
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [detail, setDetail] = useState("");
@@ -56,6 +66,18 @@ function EditProductPage() {
   const [isClosed, setIsClosed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const filtered = data.filter((c: any) => c.id !== "all");
+          if (filtered.length > 0) setCategoriesOptions(filtered);
+        }
+      })
+      .catch((e) => console.error(e));
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -221,6 +243,63 @@ function EditProductPage() {
     router.navigate({ to: "/admin/dashboard" });
   };
 
+  const handleDuplicate = async () => {
+    if (!window.confirm(`"${name}" ürününün kopyasını oluşturmak istediğinize emin misiniz?`)) return;
+    setSaving(true);
+    try {
+      const token = getToken();
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const cleanSlug = (slug || "urun")
+        .replace(/-kopya(-\d+)?$/g, "")
+        .replace(/[^a-z0-9-]+/gi, "-")
+        .toLowerCase();
+      const newSlug = `${cleanSlug}-kopya-${randomSuffix}`;
+
+      const allColors = [
+        ...selectedColors.map((n) => PREDEFINED_COLORS.find((c) => c.name === n)!),
+        ...customColors,
+      ].filter(Boolean);
+
+      const sps: Record<string, number> = {};
+      for (const s of selectedSizes) {
+        sps[s] = Number(stockPerSize[s]) || 0;
+      }
+
+      const res = await fetch(`${API_BASE}/products?t=${token}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: newSlug,
+          name: `${name} (Kopya)`,
+          price: Number(price) || 0,
+          images: images.filter((i) => i.trim()),
+          description,
+          detail,
+          category,
+          tag: tag || null,
+          colors: allColors,
+          sizes: selectedSizes,
+          stockPerSize: sps,
+          isClosed: false,
+          visible: true,
+          discount:
+            discountEnabled && Number(discountValue) > 0
+              ? { type: discountType, value: Number(discountValue) }
+              : null,
+        }),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const newProd = await res.json();
+      alert(`"${newProd.name}" kopyası başarıyla oluşturuldu!`);
+      router.navigate({ to: "/admin/products/$id/edit", params: { id: newProd.id } });
+    } catch (e: any) {
+      alert("Kopyalama hatası: " + (e.message || String(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const discPrice =
     discountEnabled && Number(discountValue) > 0 && Number(price) > 0
       ? (() => {
@@ -245,12 +324,23 @@ function EditProductPage() {
           <span className="size-2.5 rounded-full bg-crim" />
           <span className="font-display text-lg tracking-wide">Ürün Düzenle</span>
         </div>
-        <button
-          onClick={() => router.navigate({ to: "/admin/dashboard" })}
-          className="text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper"
-        >
-          ← Geri
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={saving || uploading}
+            className="rounded-full border border-paper/20 bg-ink/40 px-4 py-1.5 text-[11px] uppercase tracking-[0.18em] text-paper/80 transition hover:border-cyan/50 hover:text-cyan hover:bg-cyan/10 cursor-pointer disabled:opacity-50 font-semibold"
+            title="Bu ürünün kopyasını oluştur"
+          >
+            Kopyasını Oluştur
+          </button>
+          <button
+            onClick={() => router.navigate({ to: "/admin/dashboard" })}
+            className="text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper cursor-pointer"
+          >
+            ← Geri
+          </button>
+        </div>
       </header>
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl px-6 py-8 lg:px-10 space-y-6">
@@ -323,11 +413,11 @@ function EditProductPage() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-lg border border-paper/20 bg-ink px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
             >
-              <option value="tisort">Tişört</option>
-              <option value="bros">Broş</option>
-              <option value="sapka">Şapka</option>
-              <option value="tayt">Tayt</option>
-              <option value="aksesuar">Aksesuar</option>
+              {categoriesOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -610,25 +700,33 @@ function EditProductPage() {
         </div>
 
         {/* Butonlar */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-wrap gap-3 pt-4">
           <button
             type="submit"
             disabled={saving || uploading}
-            className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50"
+            className="rounded-full bg-crim px-8 py-3 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50 cursor-pointer"
           >
             {saving ? "Kaydediliyor..." : "Güncelle"}
           </button>
           <button
             type="button"
+            onClick={handleDuplicate}
+            disabled={saving || uploading}
+            className="rounded-full border border-cyan/40 bg-cyan/10 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:bg-cyan hover:text-ink cursor-pointer disabled:opacity-50 font-semibold"
+          >
+            Kopyasını Oluştur
+          </button>
+          <button
+            type="button"
             onClick={handleDelete}
-            className="rounded-full border border-crim/50 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-crim transition hover:bg-crim hover:text-ink"
+            className="rounded-full border border-crim/50 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-crim transition hover:bg-crim hover:text-ink cursor-pointer"
           >
             Sil
           </button>
           <button
             type="button"
             onClick={() => router.navigate({ to: "/admin/dashboard" })}
-            className="rounded-full border border-paper/20 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper"
+            className="rounded-full border border-paper/20 px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-paper/50 transition hover:text-paper cursor-pointer"
           >
             İptal
           </button>

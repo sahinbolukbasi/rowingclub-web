@@ -268,8 +268,8 @@ function Index() {
           className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-ink/30" />
-        <div className="relative px-6 pt-10 lg:px-10">
-          <h1 className="font-display text-[22vw] leading-[0.82] uppercase tracking-tight md:text-[18vw] whitespace-pre-line">
+        <div className="relative px-6 pt-10 sm:px-8 md:px-10 lg:px-12">
+          <h1 className="font-display text-[22vw] leading-[0.82] uppercase tracking-tight md:text-[18vw] whitespace-pre-line text-left">
             {renderHeroTitle(content?.heroTitle)}
           </h1>
         </div>
@@ -318,32 +318,56 @@ function Index() {
         </div>
       </section>
 
-      <section className="grid gap-8 px-6 py-16 md:grid-cols-2 lg:px-10 items-center">
-        <div className="overflow-hidden rounded-xl border border-paper/10 bg-ink/50 aspect-[4/3] max-h-[500px]">
-          <img
-            src={storyImageSrc}
-            alt="Kürek Hikayesi Ön Plan Görseli"
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-          />
-        </div>
-        <div className="flex flex-col justify-center">
-          <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-cyan">
-            — Kulübün hikâyesi
-          </p>
-          <h2 className="font-display text-4xl uppercase leading-[0.95] md:text-5xl whitespace-pre-line">
-            {content?.storyHeading || "Bir kulüp,\nbir deniz,\nbir giysi."}
-          </h2>
-          <p className="mt-6 leading-relaxed text-paper/70 text-base">
-            {content?.storyDescription ||
-              "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır."}
-          </p>
-          <Link
-            to="/kulup"
-            className="mt-6 text-[11px] uppercase tracking-[0.22em] text-cyan transition hover:text-paper font-bold"
-          >
-            {content?.storyButtonText || "Hikâyemiz →"}
-          </Link>
+      {/* — Kulübün Hikâyesi (Krem Arka Plan) ─── */}
+      <section className="my-8 bg-paper text-ink px-6 py-20 lg:px-12 xl:px-16">
+        <div className="mx-auto max-w-7xl grid gap-12 md:grid-cols-2 items-center">
+          <div className="relative overflow-hidden rounded-2xl border border-ink/10 aspect-[4/3] max-h-[500px] shadow-2xl group">
+            <img
+              src={storyImageSrc}
+              alt="Kürek Hikayesi Ön Plan Görseli"
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute bottom-4 left-5 right-5 text-paper text-xs uppercase tracking-widest font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              Kulüp İçi Özel Üretim · İstanbul Boğazı
+            </div>
+          </div>
+          <div className="flex flex-col justify-center">
+            <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-[#ff5500] font-bold">
+              — Kürek & Tasarım Kolektifi
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl uppercase leading-[1.15] text-ink whitespace-pre-line">
+              {(!content?.storyHeading || content.storyHeading === "Bir kulüp,\nbir deniz,\nbir giysi.")
+                ? "Küreğin ruhu,\nkumaşın hafızası."
+                : content.storyHeading}
+            </h2>
+            <p className="mt-6 leading-relaxed text-ink/80 text-base md:text-lg">
+              {(!content?.storyDescription || content.storyDescription.includes("deniz küreği tutkusunu giyilebilir kılar"))
+                ? "Bizler sabahın alacakaranlığında denizle konuşan, suyun ritmini ezbere bilen bir kürek topluluğuyuz. Tasarladığımız her tişört; basit bir tekstil ürünü değil, dalgaların sesini, dümencinin nefesini ve sabah küreğinin o saf tutkusunu üzerinde taşıyan yaşayan birer hikâyedir."
+                : content.storyDescription}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-mono font-bold uppercase tracking-wider text-ink/70">
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2 rounded-full bg-[#ff5500]" />
+                06:00 Sabah İlhamı
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2 rounded-full bg-[#ff5500]" />
+                220 GSM Ağır Dokuma Pamuk
+              </span>
+            </div>
+            <div className="mt-8">
+              <Link
+                to="/kulup"
+                className="inline-flex items-center gap-2 text-[12px] uppercase tracking-[0.22em] text-ink font-bold hover:text-[#ff5500] transition border-b-2 border-ink/40 hover:border-[#ff5500] pb-1 cursor-pointer"
+              >
+                {(content?.storyButtonText && content.storyButtonText !== "Hikâyemiz →")
+                  ? content.storyButtonText
+                  : "Hakkımızda & Kulüp Hikâyesi →"}
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </>

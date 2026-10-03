@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const API_BASE = "/api/admin";
 const ALL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
@@ -32,16 +32,38 @@ export const Route = createFileRoute("/admin/products/new")({
   component: NewProductPage,
 });
 
+const DEFAULT_CAT_OPTIONS = [
+  { id: "tisort", label: "Tişört" },
+  { id: "sweatshirt", label: "Sweatshirt & Hoodie" },
+  { id: "sapka", label: "Şapka & Bere" },
+  { id: "aksesuar", label: "Aksesuar" },
+  { id: "bros", label: "Broş" },
+  { id: "tayt", label: "Tayt" },
+];
+
 function NewProductPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("tisort");
+  const [categoriesOptions, setCategoriesOptions] = useState<any[]>(DEFAULT_CAT_OPTIONS);
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [detail, setDetail] = useState("");
   const [tag, setTag] = useState("");
   const [images, setImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const filtered = data.filter((c: any) => c.id !== "all");
+          if (filtered.length > 0) setCategoriesOptions(filtered);
+        }
+      })
+      .catch((e) => console.error("Category fetch error:", e));
+  }, []);
 
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<{ name: string; hex: string }[]>([]);
@@ -307,11 +329,11 @@ function NewProductPage() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-lg border border-paper/20 bg-ink px-4 py-2.5 text-paper outline-none transition focus:border-cyan"
             >
-              <option value="tisort">Tişört</option>
-              <option value="bros">Broş</option>
-              <option value="sapka">Şapka</option>
-              <option value="tayt">Tayt</option>
-              <option value="aksesuar">Aksesuar</option>
+              {categoriesOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>

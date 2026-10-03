@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const ADMIN_TOKEN = "admin-token-kurek-kulubu";
 const API_BASE = "/api/admin";
@@ -110,9 +110,75 @@ function AdminDashboard() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
-  const [tab, setTab] = useState<"products" | "orders" | "coupons" | "contacts" | "users" | "content">("products");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [newCatId, setNewCatId] = useState("");
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatLabel, setEditingCatLabel] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [tab, setTab] = useState<
+    "products" | "orders" | "coupons" | "contacts" | "users" | "content" | "categories"
+  >("products");
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
+
+  // Product filter, sort & duplicate states
+  const [prodSearch, setProdSearch] = useState("");
+  const [prodCategory, setProdCategory] = useState("all");
+  const [prodStatus, setProdStatus] = useState("all"); // "all" | "active" | "closed" | "featured" | "discounted"
+  const [prodSort, setProdSort] = useState("newest"); // "newest" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "stock-desc" | "stock-asc"
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // Orders filter & sort states
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatus, setOrderStatus] = useState("all");
+  const [orderSort, setOrderSort] = useState("date-desc"); // "date-desc" | "date-asc" | "total-desc" | "total-asc" | "name-asc"
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatId || !newCatLabel) return;
+    const cleanId = newCatId.toLowerCase().trim().replace(/[^a-z0-9-]+/g, "-");
+    setSavingCategory(true);
+    try {
+      const updatedList = await apiPost("/categories", { id: cleanId, label: newCatLabel.trim() });
+      setCategories(updatedList);
+      setNewCatId("");
+      setNewCatLabel("");
+    } catch (err: any) {
+      alert("Kategori ekleme hatası: " + err.message);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleUpdateCategory = async (id: string) => {
+    if (!editingCatLabel) return;
+    setSavingCategory(true);
+    try {
+      const updatedList = await apiPost("/categories", { id, label: editingCatLabel.trim() });
+      setCategories(updatedList);
+      setEditingCatId(null);
+      setEditingCatLabel("");
+    } catch (err: any) {
+      alert("Kategori güncelleme hatası: " + err.message);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (id === "all") {
+      alert("'Tüm Ürünler' ana filtre seçeneği silinemez.");
+      return;
+    }
+    if (!confirm(`'${id}' filtresini silmek istediğinize emin misiniz?`)) return;
+    try {
+      const updatedList = await apiDelete(`/categories/${id}`);
+      setCategories(updatedList);
+    } catch (err: any) {
+      alert("Filtre silme hatası: " + err.message);
+    }
+  };
 
   // Coupon form modal state
   const [showAddCouponModal, setShowAddCouponModal] = useState(false);
@@ -195,6 +261,7 @@ function AdminDashboard() {
     apiGet("/contacts").then(setContacts).catch((e) => setError(e.message));
     apiGet("/users").then(setUsers).catch((e) => console.warn("Users error:", e));
     apiGet("/coupons").then(setCoupons).catch((e) => console.warn("Coupons error:", e));
+    apiGet("/categories").then(setCategories).catch((e) => console.warn("Categories error:", e));
     fetch("/api/content")
       .then((r) => r.json())
       .then((data) => {
@@ -209,9 +276,9 @@ function AdminDashboard() {
     heroImage: "",
     featuredHeading: "Öne çıkan tişörtler",
     featuredSubtitle: "— Öne çıkanlar",
-    storyHeading: "Bir kulüp,\nbir deniz,\nbir giysi.",
-    storyDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır.",
-    storyButtonText: "Hikâyemiz →",
+    storyHeading: "Küreğin ruhu,\nkumaşın hafızası.",
+    storyDescription: "Bizler sabahın alacakaranlığında denizle konuşan, suyun ritmini ezbere bilen bir kürek topluluğuyuz. Tasarladığımız her tişört; basit bir tekstil ürünü değil, dalgaların sesini, dümencinin nefesini ve sabah küreğinin o saf tutkusunu üzerinde taşıyan yaşayan birer hikâyedir.",
+    storyButtonText: "Hakkımızda & Kulüp Hikâyesi →",
     storyImage: "",
     clubTitle: "Bir kulüp,\nbir deniz,\nbir giysi.",
     clubDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır. 1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı disiplini suya taşıyoruz.",
@@ -357,6 +424,51 @@ function AdminDashboard() {
       );
     } catch (e: any) {
       alert("Hata: " + e.message);
+    }
+  };
+
+  // Product duplicate handler (Kopyasını otomatik ekle)
+  const handleDuplicateProduct = async (product: any) => {
+    const confirmCopy = window.confirm(`"${product.name}" ürününün kopyasını otomatik oluşturup eklemek istiyor musunuz?`);
+    if (!confirmCopy) return;
+
+    setDuplicatingId(product.id);
+    try {
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const cleanSlugBase = (product.slug || "urun")
+        .replace(/-kopya(-\d+)?$/g, "")
+        .replace(/[^a-z0-9-]+/gi, "-")
+        .toLowerCase();
+      const newSlug = `${cleanSlugBase}-kopya-${randomSuffix}`;
+
+      const duplicatePayload = {
+        name: `${product.name} (Kopya)`,
+        slug: newSlug,
+        category: product.category || "tisort",
+        price: Number(product.price) || 0,
+        originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
+        description: product.description || "",
+        detail: product.detail || "",
+        tag: product.tag || "",
+        images: product.images && product.images.length > 0 ? [...product.images] : (product.image ? [product.image] : []),
+        image: product.image || (product.images && product.images[0]) || "",
+        sizes: product.sizes ? [...product.sizes] : ["S", "M", "L", "XL"],
+        colors: product.colors ? JSON.parse(JSON.stringify(product.colors)) : [],
+        stockPerSize: product.stockPerSize ? { ...product.stockPerSize } : undefined,
+        stock: totalStock(product) || product.stock || 0,
+        discount: product.discount ? { ...product.discount } : null,
+        isClosed: false,
+        isFeatured: false,
+        visible: true,
+      };
+
+      const created = await apiPost("/products", duplicatePayload);
+      setProducts((prev) => [created, ...prev]);
+      alert(`"${created.name}" kopyası başarıyla oluşturuldu ve ürün listesine eklendi!`);
+    } catch (e: any) {
+      alert("Ürün kopyalama hatası: " + (e.message || String(e)));
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -506,6 +618,75 @@ Kürek Kulübü / rowingclub.co
         )
       : p.stock || 0;
 
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = products.filter((p: any) => {
+      if (prodSearch.trim()) {
+        const q = prodSearch.toLowerCase().trim();
+        const nameMatch = String(p.name || "").toLowerCase().includes(q);
+        const slugMatch = String(p.slug || "").toLowerCase().includes(q);
+        const catMatch = String(p.category || "").toLowerCase().includes(q);
+        const tagMatch = String(p.tag || "").toLowerCase().includes(q);
+        if (!nameMatch && !slugMatch && !catMatch && !tagMatch) return false;
+      }
+      if (prodCategory !== "all" && String(p.category || "").toLowerCase() !== prodCategory.toLowerCase()) {
+        return false;
+      }
+      if (prodStatus === "active") {
+        if (p.isClosed || totalStock(p) === 0) return false;
+      } else if (prodStatus === "closed") {
+        if (!p.isClosed && totalStock(p) > 0) return false;
+      } else if (prodStatus === "featured") {
+        if (!p.isFeatured) return false;
+      } else if (prodStatus === "discounted") {
+        if (!p.discount || Number(p.discount.value) <= 0) return false;
+      }
+      return true;
+    });
+
+    return [...result].sort((a: any, b: any) => {
+      if (prodSort === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""), "tr");
+      if (prodSort === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""), "tr");
+      if (prodSort === "price-asc") return Number(a.price || 0) - Number(b.price || 0);
+      if (prodSort === "price-desc") return Number(b.price || 0) - Number(a.price || 0);
+      if (prodSort === "stock-desc") return totalStock(b) - totalStock(a);
+      if (prodSort === "stock-asc") return totalStock(a) - totalStock(b);
+      if (prodSort === "newest") {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return 0;
+      }
+      return 0;
+    });
+  }, [products, prodSearch, prodCategory, prodStatus, prodSort]);
+
+  const filteredAndSortedOrders = useMemo(() => {
+    let result = orders.filter((o: any) => {
+      if (orderSearch.trim()) {
+        const q = orderSearch.toLowerCase().trim();
+        const idMatch = String(o.id || "").toLowerCase().includes(q);
+        const nameMatch = String(o.customerName || "").toLowerCase().includes(q);
+        const emailMatch = String(o.email || o.shippingAddress?.email || "").toLowerCase().includes(q);
+        const phoneMatch = String(o.phone || o.shippingAddress?.phone || "").toLowerCase().includes(q);
+        const cargoMatch = String(o.cargoTrackingCode || "").toLowerCase().includes(q);
+        if (!idMatch && !nameMatch && !emailMatch && !phoneMatch && !cargoMatch) return false;
+      }
+      if (orderStatus !== "all" && o.status !== orderStatus) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...result].sort((a: any, b: any) => {
+      if (orderSort === "date-desc") return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (orderSort === "date-asc") return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      if (orderSort === "total-desc") return (Number(b.total) || 0) - (Number(a.total) || 0);
+      if (orderSort === "total-asc") return (Number(a.total) || 0) - (Number(b.total) || 0);
+      if (orderSort === "name-asc") return String(a.customerName || "").localeCompare(String(b.customerName || ""), "tr");
+      return 0;
+    });
+  }, [orders, orderSearch, orderStatus, orderSort]);
+
   return (
     <div className="min-h-screen bg-ink text-paper">
       {/* Header */}
@@ -568,6 +749,7 @@ Kürek Kulübü / rowingclub.co
             { id: "products" as const, label: "Ürünler", badge: products.length },
             { id: "orders" as const, label: "Siparişler", badge: orders.length },
             { id: "coupons" as const, label: "🏷️ Kampanyalar & İndirimler", badge: coupons.length },
+            { id: "categories" as const, label: "Filtreler & Kategoriler", badge: categories.length },
             { id: "contacts" as const, label: "Mesajlar", badge: pendingContacts > 0 ? `${pendingContacts} yeni` : contacts.length },
             { id: "users" as const, label: "Kullanıcılar", badge: users.length },
             { id: "content" as const, label: "Site Yazıları & Görselleri", badge: "İçerik" },
@@ -629,9 +811,125 @@ Kürek Kulübü / rowingclub.co
             </div>
           </div>
 
+          {/* Arama, Filtreleme ve Sıralama Çubuğu */}
+          <div className="mb-4 rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Arama */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={prodSearch}
+                  onChange={(e) => setProdSearch(e.target.value)}
+                  placeholder="Ürün adı, slug veya etiket ara..."
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 pl-9 text-xs text-paper placeholder-paper/40 outline-none transition focus:border-cyan"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-paper/40">🔍</span>
+                {prodSearch && (
+                  <button
+                    onClick={() => setProdSearch("")}
+                    className="absolute right-2.5 top-2 text-xs text-paper/40 hover:text-paper"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Kategori Filtresi */}
+              <div>
+                <select
+                  value={prodCategory}
+                  onChange={(e) => setProdCategory(e.target.value)}
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 text-xs text-paper outline-none transition focus:border-cyan cursor-pointer"
+                >
+                  <option value="all">Tüm Kategoriler ({products.length})</option>
+                  {categories.map((c: any) => {
+                    const count = products.filter(
+                      (p: any) => String(p.category || "").toLowerCase() === c.id.toLowerCase()
+                    ).length;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.label} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Durum Filtresi */}
+              <div>
+                <select
+                  value={prodStatus}
+                  onChange={(e) => setProdStatus(e.target.value)}
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 text-xs text-paper outline-none transition focus:border-cyan cursor-pointer"
+                >
+                  <option value="all">Tüm Durumlar</option>
+                  <option value="active">🟢 Satışta / Stok Var</option>
+                  <option value="closed">🔴 Stok Yok / Kapalı</option>
+                  <option value="featured">⭐ Öne Çıkanlar</option>
+                  <option value="discounted">🏷️ İndirimli Ürünler</option>
+                </select>
+              </div>
+
+              {/* Sıralama */}
+              <div>
+                <select
+                  value={prodSort}
+                  onChange={(e) => setProdSort(e.target.value)}
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 text-xs text-paper outline-none transition focus:border-cyan cursor-pointer"
+                >
+                  <option value="newest">🕒 En Yeni Eklenen</option>
+                  <option value="name-asc">🔤 İsim: A → Z</option>
+                  <option value="name-desc">🔤 İsim: Z → A</option>
+                  <option value="price-asc">💵 Fiyat: Düşük → Yüksek</option>
+                  <option value="price-desc">💵 Fiyat: Yüksek → Düşük</option>
+                  <option value="stock-desc">📦 Stok: Çok → Az</option>
+                  <option value="stock-asc">📦 Stok: Az → Çok</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Aktif Filtre Bilgisi ve Sıfırlama */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-paper/10 text-xs text-paper/60">
+              <div className="flex items-center gap-2">
+                <span>
+                  Toplam <strong className="text-paper">{products.length}</strong> üründen{" "}
+                  <strong className="text-cyan">{filteredAndSortedProducts.length}</strong> tanesi gösteriliyor
+                </span>
+                {(prodSearch || prodCategory !== "all" || prodStatus !== "all" || prodSort !== "newest") && (
+                  <button
+                    onClick={() => {
+                      setProdSearch("");
+                      setProdCategory("all");
+                      setProdStatus("all");
+                      setProdSort("newest");
+                    }}
+                    className="ml-2 text-crim hover:underline font-semibold cursor-pointer"
+                  >
+                    Filtreleri Sıfırla ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {products.length === 0 ? (
             <div className="rounded-lg border border-dashed border-paper/20 p-12 text-center">
               <p className="text-sm text-paper/50">Henüz ürün eklenmemiş.</p>
+            </div>
+          ) : filteredAndSortedProducts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-paper/20 p-12 text-center bg-ink/20">
+              <p className="text-sm text-paper/60 mb-2">Arama veya seçilen filtrelere uygun ürün bulunamadı.</p>
+              <button
+                onClick={() => {
+                  setProdSearch("");
+                  setProdCategory("all");
+                  setProdStatus("all");
+                  setProdSort("newest");
+                }}
+                className="rounded-full bg-crim px-4 py-1.5 text-xs text-ink font-semibold uppercase tracking-wider transition hover:bg-cyan cursor-pointer"
+              >
+                Filtreleri Temizle
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-paper/15 bg-ink/30">
@@ -649,7 +947,7 @@ Kürek Kulübü / rowingclub.co
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p: any) => {
+                  {filteredAndSortedProducts.map((p: any) => {
                     const isClosed = p.isClosed === true;
                     const isFeatured = p.isFeatured === true;
                     return (
@@ -722,7 +1020,7 @@ Kürek Kulübü / rowingclub.co
                         <td className="py-3 px-4">
                           <button
                             onClick={() => handleToggleProductFeatured(p)}
-                            className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${
+                            className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition cursor-pointer ${
                               isFeatured
                                 ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400 hover:text-ink"
                                 : "bg-paper/10 text-paper/50 hover:bg-paper/20 hover:text-paper"
@@ -735,7 +1033,7 @@ Kürek Kulübü / rowingclub.co
                         <td className="py-3 px-4">
                           <button
                             onClick={() => handleToggleProductClosed(p)}
-                            className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${
+                            className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition cursor-pointer ${
                               isClosed
                                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-ink"
                                 : "bg-crim/20 text-crim border border-crim/30 hover:bg-crim hover:text-ink"
@@ -746,13 +1044,23 @@ Kürek Kulübü / rowingclub.co
                           </button>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <Link
-                            to="/admin/products/$id/edit"
-                            params={{ id: p.id }}
-                            className="rounded-lg border border-paper/20 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:bg-cyan hover:text-ink"
-                          >
-                            Düzenle
-                          </Link>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleDuplicateProduct(p)}
+                              disabled={duplicatingId === p.id}
+                              className="rounded-lg border border-paper/20 bg-ink/40 px-2.5 py-1 text-[11px] uppercase tracking-[0.15em] text-paper/80 transition hover:border-cyan/50 hover:text-cyan hover:bg-cyan/10 cursor-pointer disabled:opacity-50"
+                              title="Ürünün kopyasını otomatik ekle"
+                            >
+                              {duplicatingId === p.id ? "Kopyalanıyor..." : "Kopyala"}
+                            </button>
+                            <Link
+                              to="/admin/products/$id/edit"
+                              params={{ id: p.id }}
+                              className="rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan transition hover:bg-cyan hover:text-ink font-semibold"
+                            >
+                              Düzenle
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -767,10 +1075,111 @@ Kürek Kulübü / rowingclub.co
       {/* ─── TAB 2: SİPARİŞLER ─── */}
       {tab === "orders" && (
         <section className="px-6 py-6 lg:px-10">
-          <h2 className="mb-4 font-display text-xl uppercase">Sipariş Yönetimi</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl uppercase">Sipariş Yönetimi</h2>
+              <p className="text-xs text-paper/50">
+                Gelen siparişleri durumlarına göre filtreleyebilir, müşteri veya sipariş no ile arayabilirsiniz.
+              </p>
+            </div>
+          </div>
+
+          {/* Sipariş Arama, Filtreleme ve Sıralama */}
+          <div className="mb-4 rounded-xl border border-paper/15 bg-ink/40 p-4 shadow-sm space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {/* Arama */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder="Sipariş No, müşteri, e-posta, tel veya takip no..."
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 pl-9 text-xs text-paper placeholder-paper/40 outline-none transition focus:border-cyan"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-paper/40">🔍</span>
+                {orderSearch && (
+                  <button
+                    onClick={() => setOrderSearch("")}
+                    className="absolute right-2.5 top-2 text-xs text-paper/40 hover:text-paper"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Durum Filtresi */}
+              <div>
+                <select
+                  value={orderStatus}
+                  onChange={(e) => setOrderStatus(e.target.value)}
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 text-xs text-paper outline-none transition focus:border-cyan cursor-pointer"
+                >
+                  <option value="all">Tüm Durumlar ({orders.length})</option>
+                  <option value="pending">⏳ Bekliyor</option>
+                  <option value="paid">💳 Ödendi</option>
+                  <option value="preparing">⚙️ Hazırlanıyor</option>
+                  <option value="shipped">🚚 Kargoda</option>
+                  <option value="delivered">✓ Teslim Edildi</option>
+                  <option value="cancelled">✕ İptal</option>
+                </select>
+              </div>
+
+              {/* Sıralama */}
+              <div>
+                <select
+                  value={orderSort}
+                  onChange={(e) => setOrderSort(e.target.value)}
+                  className="w-full rounded-lg border border-paper/20 bg-ink/80 px-3 py-2 text-xs text-paper outline-none transition focus:border-cyan cursor-pointer"
+                >
+                  <option value="date-desc">🕒 Tarih: En Yeni</option>
+                  <option value="date-asc">🕒 Tarih: En Eski</option>
+                  <option value="total-desc">💵 Tutar: En Yüksek</option>
+                  <option value="total-asc">💵 Tutar: En Düşük</option>
+                  <option value="name-asc">🔤 Müşteri: A → Z</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Aktif Filtre Bilgisi ve Sıfırlama */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-paper/10 text-xs text-paper/60">
+              <div className="flex items-center gap-2">
+                <span>
+                  Toplam <strong className="text-paper">{orders.length}</strong> siparişten{" "}
+                  <strong className="text-cyan">{filteredAndSortedOrders.length}</strong> tanesi gösteriliyor
+                </span>
+                {(orderSearch || orderStatus !== "all" || orderSort !== "date-desc") && (
+                  <button
+                    onClick={() => {
+                      setOrderSearch("");
+                      setOrderStatus("all");
+                      setOrderSort("date-desc");
+                    }}
+                    className="ml-2 text-crim hover:underline font-semibold cursor-pointer"
+                  >
+                    Filtreleri Sıfırla ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {orders.length === 0 ? (
             <div className="rounded-lg border border-dashed border-paper/20 p-12 text-center">
               <p className="text-sm text-paper/50">Henüz sipariş yok.</p>
+            </div>
+          ) : filteredAndSortedOrders.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-paper/20 p-12 text-center bg-ink/20">
+              <p className="text-sm text-paper/60 mb-2">Arama veya filtrelere uygun sipariş bulunamadı.</p>
+              <button
+                onClick={() => {
+                  setOrderSearch("");
+                  setOrderStatus("all");
+                  setOrderSort("date-desc");
+                }}
+                className="rounded-full bg-crim px-4 py-1.5 text-xs text-ink font-semibold uppercase tracking-wider transition hover:bg-cyan cursor-pointer"
+              >
+                Filtreleri Temizle
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-paper/15 bg-ink/30">
@@ -786,7 +1195,7 @@ Kürek Kulübü / rowingclub.co
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o: any) => (
+                  {filteredAndSortedOrders.map((o: any) => (
                     <tr key={o.id} className="border-b border-paper/10 hover:bg-paper/5 transition">
                       <td className="py-3 px-4 font-mono text-xs">{o.id}</td>
                       <td className="py-3 px-4">{o.customerName}</td>
@@ -1483,6 +1892,148 @@ Kürek Kulübü / rowingclub.co
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {/* ─── TAB: FİLTRELER & KATEGORİLER ─── */}
+      {tab === "categories" && (
+        <section className="px-6 py-6 lg:px-10">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl uppercase">Filtre & Ürün Türü Yönetimi</h2>
+              <p className="text-xs text-paper/50 mt-1 max-w-2xl">
+                Buradaki kategori ve ürün türleri, Mağaza sayfasında (`/shop`) filtreleme sekmeleri olarak listelenir ve ürün ekleme/düzenleme formlarında seçim olarak gösterilir.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Kategori Ekleme Formu */}
+            <div className="rounded-2xl border border-paper/15 bg-ink/60 p-6 shadow-xl space-y-4 h-fit">
+              <h3 className="font-display text-base uppercase text-cyan tracking-wider flex items-center gap-2">
+                <span>➕ Yeni Ürün Türü / Filtre Ekle</span>
+              </h3>
+              <form onSubmit={handleAddCategory} className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/50 font-semibold">
+                    Filtre ID / Kodu *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCatId}
+                    onChange={(e) => setNewCatId(e.target.value)}
+                    placeholder="örn: tayt, bros, yelek..."
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-4 py-2.5 text-xs text-paper outline-none transition focus:border-cyan font-mono"
+                    required
+                  />
+                  <p className="text-[10px] text-paper/40 mt-1">
+                    Sadece küçük ingilizce harf ve tire (örn: <code>sweatshirt</code>, <code>spor-aksesuar</code>)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/50 font-semibold">
+                    Sitede Görünecek Adı (Etiket) *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCatLabel}
+                    onChange={(e) => setNewCatLabel(e.target.value)}
+                    placeholder="örn: Tayt & Alt Giyim, Yelekler..."
+                    className="w-full rounded-xl border border-paper/20 bg-ink px-4 py-2.5 text-xs text-paper outline-none transition focus:border-cyan"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingCategory}
+                  className="w-full rounded-full bg-crim py-3 font-display text-xs uppercase tracking-[0.18em] text-ink font-bold transition hover:bg-cyan disabled:opacity-50 cursor-pointer shadow-md"
+                >
+                  {savingCategory ? "Ekleniyor..." : "Filtre Kategorisi Ekle"}
+                </button>
+              </form>
+            </div>
+
+            {/* Mevcut Kategoriler Listesi */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-2xl border border-paper/15 bg-ink/60 p-6 shadow-xl">
+                <div className="flex items-center justify-between border-b border-paper/15 pb-4 mb-4">
+                  <h3 className="font-display text-base uppercase text-paper tracking-wider">
+                    Aktif Filtreler ve Ürün Türleri ({categories.length})
+                  </h3>
+                </div>
+
+                <div className="divide-y divide-paper/10">
+                  {categories.map((cat: any) => (
+                    <div
+                      key={cat.id}
+                      className="py-3.5 flex flex-wrap items-center justify-between gap-4 transition hover:bg-paper/5 px-2 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs text-cyan bg-cyan/10 border border-cyan/30 px-2.5 py-1 rounded-md">
+                          {cat.id}
+                        </span>
+                        {editingCatId === cat.id ? (
+                          <input
+                            type="text"
+                            value={editingCatLabel}
+                            onChange={(e) => setEditingCatLabel(e.target.value)}
+                            className="rounded-lg border border-cyan bg-ink px-3 py-1 text-xs text-paper outline-none font-semibold"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="font-display text-sm text-paper font-semibold">
+                            {cat.label}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {editingCatId === cat.id ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdateCategory(cat.id)}
+                              disabled={savingCategory}
+                              className="rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-500/40 transition cursor-pointer"
+                            >
+                              Kaydet
+                            </button>
+                            <button
+                              onClick={() => setEditingCatId(null)}
+                              className="rounded-full border border-paper/20 text-paper/60 px-3 py-1 text-[11px] uppercase tracking-wider hover:text-paper transition cursor-pointer"
+                            >
+                              İptal
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingCatId(cat.id);
+                                setEditingCatLabel(cat.label);
+                              }}
+                              className="rounded-full border border-paper/20 px-3 py-1 text-[11px] uppercase tracking-wider text-paper/70 hover:border-cyan hover:text-cyan transition cursor-pointer"
+                            >
+                              Düzenle
+                            </button>
+                            {cat.id !== "all" && (
+                              <button
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                className="rounded-full border border-crim/30 bg-crim/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-crim hover:bg-crim hover:text-ink transition cursor-pointer"
+                              >
+                                Sil
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       )}
 

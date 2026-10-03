@@ -41,7 +41,7 @@ function IletisimPage() {
       <div className="grid gap-12 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-cyan">— İletişim</p>
-          <h1 className="font-display text-4xl uppercase leading-[0.95] md:text-7xl">
+          <h1 className="font-display text-4xl uppercase leading-[1.15] md:text-7xl">
             {content?.contactTitle || "Bize ulaş."}
           </h1>
           <p className="mt-6 max-w-md leading-relaxed text-paper/70">

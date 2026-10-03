@@ -80,6 +80,43 @@ async function saveAllCoupons(coupons: any[]): Promise<void> {
   );
 }
 
+const DEFAULT_CATEGORIES = [
+  { id: "all", label: "Tüm Ürünler" },
+  { id: "tisort", label: "Tişört" },
+  { id: "sweatshirt", label: "Sweatshirt & Hoodie" },
+  { id: "sapka", label: "Şapka & Bere" },
+  { id: "aksesuar", label: "Aksesuar" },
+  { id: "bros", label: "Broş" },
+  { id: "tayt", label: "Tayt" },
+];
+
+async function getAllCategories(): Promise<any[]> {
+  try {
+    const res = await _doc.send(
+      new GetCommand({ TableName: CONTENT_TABLE, Key: { id: "site-categories" } })
+    );
+    if (res.Item && Array.isArray(res.Item.categories) && res.Item.categories.length > 0) {
+      return res.Item.categories;
+    }
+  } catch (e) {
+    console.warn("Get categories from CONTENT_TABLE error:", e);
+  }
+  return DEFAULT_CATEGORIES;
+}
+
+async function saveAllCategories(categories: any[]): Promise<void> {
+  await _doc.send(
+    new PutCommand({
+      TableName: CONTENT_TABLE,
+      Item: {
+        id: "site-categories",
+        categories,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  );
+}
+
 const DEFAULT_CONTENT = {
   id: "site-content",
   heroTitle: "Kürek\nKulübü",
@@ -88,9 +125,9 @@ const DEFAULT_CONTENT = {
   heroImage: "",
   featuredHeading: "Öne çıkan tişörtler",
   featuredSubtitle: "— Öne çıkanlar",
-  storyHeading: "Bir kulüp,\nbir deniz,\nbir giysi.",
-  storyDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır.",
-  storyButtonText: "Hikâyemiz →",
+  storyHeading: "Küreğin ruhu,\nkumaşın hafızası.",
+  storyDescription: "Bizler sabahın alacakaranlığında denizle konuşan, suyun ritmini ezbere bilen bir kürek topluluğuyuz. Tasarladığımız her tişört; basit bir tekstil ürünü değil, dalgaların sesini, dümencinin nefesini ve sabah küreğinin o saf tutkusunu üzerinde taşıyan yaşayan birer hikâyedir.",
+  storyButtonText: "Hakkımızda & Kulüp Hikâyesi →",
   storyImage: "",
   clubTitle: "Bir kulüp,\nbir deniz,\nbir giysi.",
   clubDescription: "Kürek Kulübü, deniz küreği tutkusunu giyilebilir kılar. Her tasarım kulübün ritmini, sabahın ilk ışığını ve küreğin suya değdiği anı taşır. 1974'ten beri İstanbul sularında kürek çekiyor, her sabah aynı disiplini suya taşıyoruz.",
@@ -427,6 +464,47 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const id = path.split("/").pop();
     await _doc.send(new DeleteCommand({ TableName: PRODUCTS_TABLE, Key: { id } }));
     return jsonResponse({ success: true });
+  }
+
+  // ─── Categories & Filters ───────────────────────
+  if (path === "/api/categories" && request.method === "GET") {
+    const categories = await getAllCategories();
+    return jsonResponse(categories);
+  }
+
+  if (path === "/api/admin/categories" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const categories = await getAllCategories();
+    return jsonResponse(categories);
+  }
+
+  if (path === "/api/admin/categories" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = (await request.json()) as any;
+    let list = await getAllCategories();
+
+    if (Array.isArray(body.categories)) {
+      list = body.categories;
+    } else if (body.id && body.label) {
+      const catObj = { id: String(body.id).toLowerCase().trim(), label: String(body.label).trim() };
+      const idx = list.findIndex((c: any) => c.id === catObj.id);
+      if (idx >= 0) {
+        list[idx] = catObj;
+      } else {
+        list.push(catObj);
+      }
+    }
+    await saveAllCategories(list);
+    return jsonResponse(list);
+  }
+
+  if (path.startsWith("/api/admin/categories/") && request.method === "DELETE") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const catId = path.split("/").pop();
+    let list = await getAllCategories();
+    list = list.filter((c: any) => c.id !== catId);
+    await saveAllCategories(list);
+    return jsonResponse(list);
   }
 
   // ─── Coupons & Campaigns ───────────────────────
