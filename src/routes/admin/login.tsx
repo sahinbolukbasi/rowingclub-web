@@ -6,8 +6,8 @@ export const Route = createFileRoute("/admin/login")({
 });
 
 function AdminLogin() {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,33 +24,26 @@ function AdminLogin() {
       });
       const data = await res.json();
       if (res.ok && data.token) {
-        localStorage.setItem("admin-token", data.token);
-        localStorage.setItem("admin_authenticated", "true");
-        localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+        // Güvenlik: Oturumu sadece sessionStorage'da tutuyoruz, tarayıcı kapanınca silinir.
+        sessionStorage.setItem("admin-token", data.token);
+        sessionStorage.setItem("admin_authenticated", "true");
         if (data.user) {
-          localStorage.setItem("admin_user", JSON.stringify(data.user));
+          sessionStorage.setItem("admin_user", JSON.stringify(data.user));
         }
+
+        // Eski kalıcı localStorage verilerini temizle
+        localStorage.removeItem("admin-token");
+        localStorage.removeItem("admin_authenticated");
+        localStorage.removeItem("admin_session_expires");
+        localStorage.removeItem("admin_user");
+
         window.location.href = "/admin/dashboard";
         return;
       } else {
-        if (username === "admin" && password === "admin123") {
-          localStorage.setItem("admin-token", "admin-token-kurek-kulubu");
-          localStorage.setItem("admin_authenticated", "true");
-          localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
-          window.location.href = "/admin/dashboard";
-          return;
-        }
         setError(data.error || "Geçersiz kullanıcı adı veya şifre");
       }
     } catch {
-      if (username === "admin" && password === "admin123") {
-        localStorage.setItem("admin-token", "admin-token-kurek-kulubu");
-        localStorage.setItem("admin_authenticated", "true");
-        localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
-        window.location.href = "/admin/dashboard";
-        return;
-      }
-      setError("Giriş sırasında bir hata oluştu.");
+      setError("Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
     }
@@ -64,45 +57,54 @@ function AdminLogin() {
           <p className="text-paper/60 mt-2">Yönetim paneline giriş yapın</p>
         </div>
         
-        <form onSubmit={handleSubmit} className="border border-paper/15 rounded-lg p-8 bg-ink/30">
-          <div className="mb-6">
+        <form onSubmit={handleSubmit} className="border border-paper/15 rounded-lg p-8 bg-ink/30 space-y-6" autoComplete="off">
+          <div>
             <label className="block text-sm uppercase tracking-[0.22em] text-paper/50 mb-2">Kullanıcı Adı</label>
             <input
               type="text"
+              name="admin_login_username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-md border border-paper/15 bg-ink px-4 py-3 text-sm text-paper outline-none focus:border-cyan"
-              placeholder="admin"
+              className="w-full rounded-md border border-paper/15 bg-ink px-4 py-3 text-sm text-paper outline-none focus:border-cyan placeholder-paper/30"
+              placeholder="Kullanıcı adınızı girin"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck="false"
               required
             />
           </div>
           
-          <div className="mb-6">
+          <div>
             <label className="block text-sm uppercase tracking-[0.22em] text-paper/50 mb-2">Şifre</label>
             <input
               type="password"
+              name="admin_login_password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-paper/15 bg-ink px-4 py-3 text-sm text-paper outline-none focus:border-cyan"
+              className="w-full rounded-md border border-paper/15 bg-ink px-4 py-3 text-sm text-paper outline-none focus:border-cyan placeholder-paper/30"
               placeholder="••••••••"
+              autoComplete="new-password"
               required
             />
           </div>
           
           {error && (
-            <div className="mb-6 text-red-400 text-sm">{error}</div>
+            <div className="rounded-lg bg-crim/20 border border-crim/40 p-3 text-xs text-crim">{error}</div>
           )}
           
           <button 
             type="submit"
-            className="w-full rounded-full bg-crim py-3.5 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan"
+            disabled={loading}
+            className="w-full rounded-full bg-crim py-3.5 font-display text-sm uppercase tracking-[0.15em] text-ink transition hover:bg-cyan disabled:opacity-50 cursor-pointer shadow-md"
           >
-            Giriş Yap
+            {loading ? "Doğrulanıyor..." : "Giriş Yap"}
           </button>
           
-          <div className="mt-6 text-center text-sm text-paper/50">
-            <p>Varsayılan giriş bilgileri:</p>
-            <p className="mt-1">Kullanıcı: admin | Şifre: admin123</p>
+          <div className="pt-2 text-center">
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-paper/40 font-mono">
+              <span>🔒</span> Veritabanı Korumalı Güvenli Oturum
+            </span>
           </div>
         </form>
       </div>

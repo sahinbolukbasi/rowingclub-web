@@ -16,7 +16,7 @@ const PREDEFINED_COLORS = [
 
 function getToken() {
   try {
-    return localStorage.getItem("admin-token") ?? "";
+    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
   } catch {
     return "";
   }

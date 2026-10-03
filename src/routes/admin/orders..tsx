@@ -6,7 +6,7 @@ const ALL_STATUSES = ["pending", "paid", "preparing", "shipped", "delivered", "c
 const STATUS_LABELS: Record<string, string> = { pending: "Sipariş alındı", paid: "Ödeme onaylandı", preparing: "Ürün hazırlanıyor", shipped: "Kargoya verildi", delivered: "Teslim edildi", cancelled: "İptal edildi" };
 const STATUS_COLORS: Record<string, string> = { pending: "bg-yellow-500/20 text-yellow-400", paid: "bg-green-500/20 text-green-400", preparing: "bg-blue-500/20 text-blue-400", shipped: "bg-cyan/20 text-cyan", delivered: "bg-emerald-500/20 text-emerald-400", cancelled: "bg-crim/20 text-crim" };
 
-function getToken() { try { return localStorage.getItem("admin-token") ?? ""; } catch { return ""; } }
+function getToken() { try { return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || ""; } catch { return ""; } }
 
 export const Route = createFileRoute("/admin/orders/")({
   head: () => ({ meta: [{ title: "Sipariş Detay — Admin" }, { name: "robots", content: "noindex, nofollow" }] }),

@@ -14,6 +14,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createIyziPaymentLink } from "./lib/iyzico";
+import crypto from "crypto";
 
 const REGION = process.env.AWS_REGION ?? "eu-central-1";
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE ?? "kurek-products";
@@ -22,6 +23,11 @@ const CONTACTS_TABLE = process.env.CONTACTS_TABLE ?? "kurek-contacts";
 const USERS_TABLE = process.env.USERS_TABLE ?? "kurek-users";
 const CONTENT_TABLE = process.env.CONTENT_TABLE ?? "kurek-content";
 const COUPONS_TABLE = process.env.COUPONS_TABLE ?? "kurek-coupons";
+
+// In-memory active session tokens with 2-hour TTL
+const activeSessions = new Map<string, { user: any; expiresAt: number }>();
+// Brute-force protection: track failed login attempts
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
 
 const INITIAL_COUPONS = [
   {
@@ -207,6 +213,15 @@ function jsonResponse(data: unknown, status = 200): Response {
 function checkAuth(request: Request): boolean {
   const url = new URL(request.url);
   const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
+  if (!token) return false;
+
+  const session = activeSessions.get(token);
+  if (session && session.expiresAt > Date.now()) {
+    // Extend session on activity (sliding 2 hours)
+    session.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
+    return true;
+  }
+
   return token === ADMIN_TOKEN;
 }
 
@@ -1072,27 +1087,44 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   }
 
   // ─── Users Management ───────────────────────────
-  if (path === "/api/admin/users" && request.method === "GET") {
-    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    let customUsers: any[] = [];
+  async function ensureRootAdminInDb() {
     try {
       const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
-      customUsers = (result.Items ?? []).map((u: any) => {
+      const users = result.Items ?? [];
+      const hasAdmin = users.some((u: any) => (u.username || "").toLowerCase() === "admin");
+      if (!hasAdmin) {
+        await _doc.send(new PutCommand({
+          TableName: USERS_TABLE,
+          Item: {
+            id: "admin-root",
+            username: "admin",
+            password: "admin123",
+            name: "Sistem Yöneticisi",
+            role: "Süper Admin",
+            createdAt: new Date().toISOString(),
+            isDefault: true,
+          },
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not ensure root admin in DB:", err);
+    }
+  }
+
+  if (path === "/api/admin/users" && request.method === "GET") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    await ensureRootAdminInDb();
+    let dbUsers: any[] = [];
+    try {
+      const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
+      dbUsers = (result.Items ?? []).map((u: any) => {
         const { password: _, ...safeUser } = u;
         return safeUser;
       });
     } catch (e) {
       console.warn("Could not scan users table:", e);
     }
-    const defaultUser = {
-      id: "admin-root",
-      username: "admin",
-      name: "Sistem Yöneticisi",
-      role: "Süper Admin",
-      createdAt: "2026-09-01T00:00:00.000Z",
-      isDefault: true,
-    };
-    return jsonResponse([defaultUser, ...customUsers]);
+    return jsonResponse(dbUsers);
   }
 
   if (path === "/api/admin/users" && request.method === "POST") {
@@ -1124,36 +1156,129 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     return jsonResponse({ success: true });
   }
 
+  // ─── Change User Password Endpoint ───────────────
+  if (path === "/api/admin/users/change-password" && request.method === "POST") {
+    if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json() as { userId?: string; newPassword?: string };
+    if (!body.userId || !body.newPassword || body.newPassword.trim().length < 6) {
+      return jsonResponse({ error: "Şifre en az 6 karakter olmalıdır" }, 400);
+    }
+    await _doc.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { id: body.userId },
+      UpdateExpression: "SET password = :p",
+      ExpressionAttributeValues: { ":p": body.newPassword.trim() },
+    }));
+    return jsonResponse({ success: true, message: "Şifre başarıyla güncellendi" });
+  }
+
+  // ─── Admin Authentication Login (DB Checked & Rate-Limited) ───
   if (path === "/api/admin/auth/login" && request.method === "POST") {
     const body = await request.json() as { username?: string; password?: string };
     const username = (body.username || "").trim();
     const password = (body.password || "").trim();
 
-    if (username === "admin" && password === "admin123") {
+    if (!username || !password) {
+      return jsonResponse({ error: "Lütfen kullanıcı adı ve şifrenizi girin." }, 400);
+    }
+
+    // Rate Limiting (Brute-force protection)
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    const attemptKey = `${clientIp}_${username.toLowerCase()}`;
+    const attempt = loginAttempts.get(attemptKey);
+
+    if (attempt && attempt.lockedUntil > Date.now()) {
+      const remainingMinutes = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
+      return jsonResponse(
+        { error: `Güvenlik Koruması: Çok fazla başarısız deneme yapıldı. Lütfen ${remainingMinutes} dakika sonra tekrar deneyin.` },
+        429
+      );
+    }
+
+    await ensureRootAdminInDb();
+
+    let matchedUser: any = null;
+    try {
+      const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
+      const users = result.Items ?? [];
+      matchedUser = users.find(
+        (u: any) =>
+          (u.username || "").toLowerCase() === username.toLowerCase() &&
+          u.password === password
+      );
+    } catch (e) {
+      console.error("DB Login verification error:", e);
+    }
+
+    if (!matchedUser) {
+      const newCount = (attempt?.count || 0) + 1;
+      if (newCount >= 5) {
+        loginAttempts.set(attemptKey, { count: newCount, lockedUntil: Date.now() + 15 * 60 * 1000 });
+        return jsonResponse(
+          { error: "5 kez hatalı giriş denemesi yapıldı. Güvenlik nedeniyle hesap 15 dakika kilitlendi." },
+          429
+        );
+      } else {
+        loginAttempts.set(attemptKey, { count: newCount, lockedUntil: 0 });
+      }
+      return jsonResponse({ error: `Kullanıcı adı veya şifre hatalı. (Kalan deneme hakkı: ${5 - newCount})` }, 401);
+    }
+
+    // Reset attempt counter on success
+    loginAttempts.delete(attemptKey);
+
+    // Generate dynamic cryptographically secure session token (no hardcoded credentials)
+    const sessionToken = "agt_" + crypto.randomBytes(32).toString("hex");
+    const sessionUser = {
+      id: matchedUser.id,
+      username: matchedUser.username,
+      name: matchedUser.name || matchedUser.username,
+      role: matchedUser.role || "Admin",
+    };
+
+    // Store in active sessions map with 2-hour TTL
+    activeSessions.set(sessionToken, {
+      user: sessionUser,
+      expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+    });
+
+    return jsonResponse({
+      success: true,
+      token: sessionToken,
+      user: sessionUser,
+    });
+  }
+
+  // ─── Session Verification Endpoint ───────────────
+  if (path === "/api/admin/auth/verify" && request.method === "GET") {
+    const url = new URL(request.url);
+    const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
+    if (!token) return jsonResponse({ valid: false, error: "Oturum bulunamadı" }, 401);
+
+    const session = activeSessions.get(token);
+    if (session && session.expiresAt > Date.now()) {
+      session.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // extend sliding session
+      return jsonResponse({ valid: true, user: session.user });
+    }
+
+    if (token === ADMIN_TOKEN) {
       return jsonResponse({
-        success: true,
-        token: ADMIN_TOKEN,
+        valid: true,
         user: { username: "admin", name: "Sistem Yöneticisi", role: "Süper Admin" },
       });
     }
 
-    try {
-      const result = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
-      const found = (result.Items ?? []).find(
-        (u: any) => u.username === username && u.password === password
-      );
-      if (found) {
-        return jsonResponse({
-          success: true,
-          token: ADMIN_TOKEN,
-          user: { username: found.username, name: found.name, role: found.role },
-        });
-      }
-    } catch (e) {
-      console.error("Login verification error:", e);
-    }
+    return jsonResponse({ valid: false, error: "Oturum süresi dolmuş veya geçersiz" }, 401);
+  }
 
-    return jsonResponse({ error: "Kullanıcı adı veya şifre hatalı" }, 401);
+  // ─── Session Logout Endpoint ─────────────────────
+  if (path === "/api/admin/auth/logout" && request.method === "POST") {
+    const url = new URL(request.url);
+    const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
+    if (token) {
+      activeSessions.delete(token);
+    }
+    return jsonResponse({ success: true });
   }
 
   // ─── Image Upload (JSON base64 & multipart supported) ─

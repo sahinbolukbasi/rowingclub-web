@@ -10,7 +10,7 @@ const PREDEFINED_COLORS = [
   { name: "Gri", hex: "#808080" }, { name: "Krem", hex: "#f3eee2" },
 ];
 
-function getToken() { try { return localStorage.getItem("admin-token") ?? ""; } catch { return ""; } }
+function getToken() { try { return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || ""; } catch { return ""; } }
 
 export const Route = createFileRoute("/admin/products/edit")({
   head: () => ({ meta: [{ title: "Ürün Düzenle — Admin" }, { name: "robots", content: "noindex, nofollow" }] }),

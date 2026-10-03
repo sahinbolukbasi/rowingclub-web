@@ -1,12 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
-const ADMIN_TOKEN = "admin-token-kurek-kulubu";
 const API_BASE = "/api/admin";
 
 function getToken() {
   try {
-    return localStorage.getItem("admin-token") ?? "";
+    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
   } catch {
     return "";
   }
@@ -85,17 +84,34 @@ function useAdminAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("admin-token");
-    const expires = Number(localStorage.getItem("admin_session_expires") || "0");
+    const token = getToken();
 
-    if (token === ADMIN_TOKEN && (!expires || Date.now() < expires)) {
-      localStorage.setItem("admin_session_expires", String(Date.now() + 30 * 24 * 60 * 60 * 1000));
-      setAuthed(true);
-    } else {
-      localStorage.removeItem("admin-token");
-      localStorage.removeItem("admin_session_expires");
+    if (!token) {
       router.navigate({ to: "/admin" });
+      return;
     }
+
+    // Doğrudan veritabanı ve sunucu üzerinden oturum geçerliliğini doğrula
+    fetch(`${API_BASE}/auth/verify?t=${token}&_=${Date.now()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.valid) {
+          setAuthed(true);
+        } else {
+          throw new Error("Invalid session");
+        }
+      })
+      .catch(() => {
+        sessionStorage.clear();
+        localStorage.removeItem("admin-token");
+        localStorage.removeItem("admin_authenticated");
+        localStorage.removeItem("admin_session_expires");
+        localStorage.removeItem("admin_user");
+        router.navigate({ to: "/admin" });
+      });
   }, []);
 
   return authed;
@@ -361,6 +377,39 @@ function AdminDashboard() {
   const [savingUser, setSavingUser] = useState(false);
   const [userMsg, setUserMsg] = useState("");
 
+  // User password change state
+  const [changingPasswordUser, setChangingPasswordUser] = useState<any>(null);
+  const [newPasswordValue, setNewPasswordValue] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState("");
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changingPasswordUser || !newPasswordValue) return;
+    if (newPasswordValue.length < 6) {
+      setPasswordMsg("Şifre en az 6 karakter olmalıdır");
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordMsg("");
+    try {
+      await apiPost("/users/change-password", {
+        userId: changingPasswordUser.id,
+        newPassword: newPasswordValue,
+      });
+      setPasswordMsg("✓ Şifre veritabanında başarıyla güncellendi!");
+      setTimeout(() => {
+        setChangingPasswordUser(null);
+        setNewPasswordValue("");
+        setPasswordMsg("");
+      }, 1500);
+    } catch (err: any) {
+      setPasswordMsg("Hata: " + err.message);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   // Contact reply email modal state
   const [selectedContact, setSelectedContact] = useState<any | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
@@ -388,10 +437,22 @@ function AdminDashboard() {
     setSeeding(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin-token");
-    localStorage.removeItem("admin_session_expires");
-    router.navigate({ to: "/admin" });
+  const handleLogout = async () => {
+    const token = getToken();
+    try {
+      if (token) {
+        await fetch(`${API_BASE}/auth/logout?t=${token}`, { method: "POST" });
+      }
+    } catch (e) {
+      console.warn("Logout error:", e);
+    } finally {
+      sessionStorage.clear();
+      localStorage.removeItem("admin-token");
+      localStorage.removeItem("admin_authenticated");
+      localStorage.removeItem("admin_session_expires");
+      localStorage.removeItem("admin_user");
+      router.navigate({ to: "/admin" });
+    }
   };
 
   // Save Site Content Texts & Banners
@@ -745,8 +806,8 @@ Kürek Kulübü / rowingclub.co
           <span className="font-display text-lg tracking-wide">Kürek Kulübü Yönetim Paneli</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="hidden sm:inline-block text-[11px] text-paper/40">
-            Oturum: 30 Günlük Aktif
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-400 font-mono">
+            <span>🔒</span> Güvenli Oturum (DB Korumalı)
           </span>
           <Link
             to="/"
@@ -1464,18 +1525,26 @@ Kürek Kulübü / rowingclub.co
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString("tr-TR") : "Sistem"}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {isDefaultAdmin ? (
-                          <span className="text-[10px] text-paper/40 uppercase tracking-wider">
-                            Varsayılan
-                          </span>
-                        ) : (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleDeleteUser(u.id, u.username)}
-                            className="text-[11px] uppercase tracking-[0.18em] text-crim transition hover:underline"
+                            onClick={() => {
+                              setChangingPasswordUser(u);
+                              setNewPasswordValue("");
+                              setPasswordMsg("");
+                            }}
+                            className="rounded-full border border-cyan/30 px-3 py-1 text-[10px] uppercase text-cyan hover:bg-cyan hover:text-ink transition cursor-pointer"
                           >
-                            Sil
+                            🔑 Şifre Değiştir
                           </button>
-                        )}
+                          {!isDefaultAdmin && (
+                            <button
+                              onClick={() => handleDeleteUser(u.id, u.username)}
+                              className="text-[11px] uppercase tracking-[0.18em] text-crim transition hover:underline"
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2559,6 +2628,75 @@ Kürek Kulübü / rowingclub.co
             </div>
           </div>
         </section>
+      )}
+
+      {/* ─── MODAL: ŞİFRE DEĞİŞTİR ─── */}
+      {changingPasswordUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-paper/20 bg-ink p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-paper/15 pb-3">
+              <div>
+                <h3 className="font-display text-lg uppercase text-paper">Şifre Değiştir</h3>
+                <p className="text-xs text-paper/50">
+                  <span className="text-cyan font-mono">@{changingPasswordUser.username}</span> kullanıcısının şifresini güncelleyin
+                </p>
+              </div>
+              <button
+                onClick={() => setChangingPasswordUser(null)}
+                className="text-paper/50 hover:text-paper cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {passwordMsg && (
+              <div
+                className={`mt-3 rounded-lg border p-2.5 text-xs ${
+                  passwordMsg.startsWith("✓")
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-semibold"
+                    : "bg-crim/20 border-crim/40 text-crim"
+                }`}
+              >
+                {passwordMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-4" autoComplete="off">
+              <div>
+                <label className="mb-1 block text-[11px] uppercase tracking-wider text-paper/60 font-bold">
+                  Yeni Şifre (En az 6 karakter) *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPasswordValue}
+                  onChange={(e) => setNewPasswordValue(e.target.value)}
+                  placeholder="Yeni güçlü şifrenizi girin"
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-paper/20 bg-transparent px-3 py-2.5 text-sm text-paper outline-none focus:border-cyan"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-paper/10">
+                <button
+                  type="button"
+                  onClick={() => setChangingPasswordUser(null)}
+                  className="rounded-full border border-paper/20 px-4 py-2 text-xs uppercase tracking-wider text-paper/60 hover:text-paper cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPassword}
+                  className="rounded-full bg-cyan px-5 py-2 font-display text-xs uppercase tracking-wider text-ink font-bold hover:bg-paper transition disabled:opacity-50 cursor-pointer shadow-md"
+                >
+                  {savingPassword ? "Kaydediliyor..." : "Şifreyi Güncelle"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ─── MODAL: KULLANICI EKLE ─── */}
