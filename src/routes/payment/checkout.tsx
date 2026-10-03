@@ -1,6 +1,13 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+function cleanParam(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  let s = String(val).trim();
+  // Strip urlencoded quotes (%22), standard quotes (" and '), curly quotes, and backslashes
+  return s.replace(/%22/gi, "").replace(/["'”"„“’‘\\]/g, "").trim();
+}
+
 export const Route = createFileRoute("/payment/checkout")({
   head: () => ({
     meta: [
@@ -19,22 +26,22 @@ function PaymentCheckoutPage() {
 
   // Read search params in browser
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const paramOrderId = searchParams?.get("orderId") ?? "";
-  const paramTotal = searchParams?.get("total") ?? "0";
-  const paramPaymentUrl = searchParams?.get("paymentUrl") ?? "";
+  const paramOrderId = cleanParam(searchParams?.get("orderId"));
+  const paramTotal = cleanParam(searchParams?.get("total") ?? "0");
+  const paramPaymentUrl = cleanParam(searchParams?.get("paymentUrl"));
 
   const [paymentUrl, setPaymentUrl] = useState(paramPaymentUrl);
 
   // If paymentUrl wasn't passed in query or order needs to be verified, fetch order
   useEffect(() => {
     if (!paramOrderId) return;
-    fetch(`/api/orders/${encodeURIComponent(paramOrderId)}`)
+    fetch(`/api/orders/${encodeURIComponent(paramOrderId)}?_=${Date.now()}`)
       .then((r) => r.json())
       .then((data) => {
         if (data && data.id) {
           setOrder(data);
           if (data.paymentUrl && !paymentUrl) {
-            setPaymentUrl(data.paymentUrl);
+            setPaymentUrl(cleanParam(data.paymentUrl));
           }
         }
       })
@@ -57,8 +64,8 @@ function PaymentCheckoutPage() {
     return () => clearTimeout(timer);
   }, [paymentUrl, countdown, autoRedirectPaused]);
 
-  const activeTotal = order?.total ?? paramTotal;
-  const activeOrderId = order?.id ?? paramOrderId;
+  const activeTotal = cleanParam(order?.total ?? paramTotal);
+  const activeOrderId = cleanParam(order?.id ?? paramOrderId);
 
   return (
     <div className="flex min-h-[85vh] flex-col items-center justify-center px-6 py-12">

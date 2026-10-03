@@ -144,8 +144,8 @@ function CheckoutPage() {
         to: "/payment/checkout",
         params: {},
         search: {
-          orderId: order.id,
-          total: String(finalTotal),
+          orderId: String(order.id || "").replace(/["']/g, ""),
+          total: String(finalTotal).replace(/["']/g, ""),
           paymentUrl: order.paymentUrl || "",
         } as any,
       });

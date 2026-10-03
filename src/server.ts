@@ -934,7 +934,8 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   }
 
   if (path.startsWith("/api/orders/") && !path.endsWith("/generate-payment-link") && request.method === "GET") {
-    const id = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, ""));
+    const rawId = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, ""));
+    const id = rawId.replace(/["']/g, "").trim();
     try {
       const result = await _doc.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }));
       if (result.Item) {
@@ -950,8 +951,9 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       const scanRes = await _doc.send(new ScanCommand({ TableName: ORDERS_TABLE }));
       const found = (scanRes.Items ?? []).find(
         (o: any) =>
-          String(o.id).trim().toLowerCase() === id.trim().toLowerCase() ||
-          o.customerEmail?.toLowerCase().trim() === id.toLowerCase().trim() ||
+          String(o.id).replace(/["']/g, "").trim().toLowerCase() === id.toLowerCase() ||
+          String(o.id).trim().toLowerCase() === rawId.trim().toLowerCase() ||
+          o.customerEmail?.toLowerCase().trim() === id.toLowerCase() ||
           (o.customerPhone && id && o.customerPhone.replace(/\D/g, "") === id.replace(/\D/g, ""))
       );
       if (found) {
@@ -968,7 +970,7 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
   }
 
   if (path.startsWith("/api/orders/") && !path.endsWith("/generate-payment-link") && request.method === "PUT") {
-    const id = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, ""));
+    const id = decodeURIComponent(path.replace("/api/orders/", "").replace(/\/$/, "")).replace(/["']/g, "").trim();
     const body = (await request.json()) as any;
 
     try {
@@ -1268,21 +1270,43 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
   if (path === "/api/admin/users" && request.method === "POST") {
     if (!checkAuth(request)) return jsonResponse({ error: "Unauthorized" }, 401);
-    const body = await request.json() as any;
+    const body = (await request.json()) as any;
     if (!body.username || !body.password) {
       return jsonResponse({ error: "Kullanıcı adı ve şifre zorunludur" }, 400);
     }
+    const cleanUsername = String(body.username).trim();
+    const cleanPassword = String(body.password).trim();
+    if (cleanPassword.length < 6) {
+      return jsonResponse({ error: "Şifre en az 6 karakter olmalıdır" }, 400);
+    }
+
+    try {
+      const scanRes = await _doc.send(new ScanCommand({ TableName: USERS_TABLE }));
+      const exists = (scanRes.Items ?? []).some(
+        (u: any) => (u.username || "").toLowerCase() === cleanUsername.toLowerCase()
+      );
+      if (exists) {
+        return jsonResponse({ error: `"${cleanUsername}" kullanıcı adı zaten kullanımda` }, 400);
+      }
+    } catch (e) {
+      console.warn("Scan users error:", e);
+    }
+
     const user = {
       id: genId("usr"),
-      username: body.username.trim(),
-      password: body.password.trim(),
-      name: body.name || body.username,
+      username: cleanUsername,
+      password: cleanPassword,
+      name: (body.name || cleanUsername).trim(),
       role: body.role || "Admin",
       createdAt: new Date().toISOString(),
     };
     await _doc.send(new PutCommand({ TableName: USERS_TABLE, Item: user }));
     const { password: _, ...safeUser } = user;
-    return jsonResponse(safeUser);
+    return jsonResponse({
+      user: safeUser,
+      ...safeUser,
+      success: true,
+    });
   }
 
   if (path.startsWith("/api/admin/users/") && request.method === "DELETE") {

@@ -20,7 +20,18 @@ function SiparisTakipPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cleanId = (id || "").trim();
+    let cleanId = (id || "").trim();
+    while (
+      (cleanId.startsWith('"') && cleanId.endsWith('"')) ||
+      (cleanId.startsWith("'") && cleanId.endsWith("'")) ||
+      (cleanId.startsWith("%22") && cleanId.endsWith("%22"))
+    ) {
+      if (cleanId.startsWith("%22") && cleanId.endsWith("%22")) {
+        cleanId = cleanId.slice(3, -3).trim();
+      } else {
+        cleanId = cleanId.slice(1, -1).trim();
+      }
+    }
     if (!cleanId) {
       setLoading(false);
       return;

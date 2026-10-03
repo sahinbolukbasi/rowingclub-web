@@ -694,27 +694,34 @@ Kürek Kulübü / rowingclub.co
   // Add new user
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername || !newPassword) return;
+    if (!newUsername.trim() || !newPassword.trim()) {
+      setUserMsg("Kullanıcı adı ve şifre zorunludur.");
+      return;
+    }
     setSavingUser(true);
     setUserMsg("");
     try {
       const res = await apiPost("/users", {
-        username: newUsername,
-        password: newPassword,
-        name: newName || newUsername,
+        username: newUsername.trim(),
+        password: newPassword.trim(),
+        name: (newName || newUsername).trim(),
         role: newRole,
       });
-      if (res.user) {
-        setUsers((prev) => [...prev, res.user]);
+      const createdUser = res.user || (res.id ? res : null);
+      if (createdUser) {
+        setUsers((prev) => [...prev, createdUser]);
         setShowAddUserModal(false);
         setNewUsername("");
         setNewPassword("");
         setNewName("");
+      } else {
+        throw new Error(res.error || "Kullanıcı oluşturulamadı.");
       }
     } catch (err: any) {
       setUserMsg(err.message || "Kullanıcı oluşturulamadı");
+    } finally {
+      setSavingUser(false);
     }
-    setSavingUser(false);
   };
 
   // Delete user
