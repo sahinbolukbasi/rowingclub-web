@@ -14,13 +14,12 @@ const PREDEFINED_COLORS = [
   { name: "Krem", hex: "#f3eee2" },
 ];
 
-function getToken() {
-  try {
-    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
-  } catch {
-    return "";
-  }
-}
+import {
+  getToken,
+  isSessionLocallyValid,
+  extendAdminSession,
+  clearAdminSession,
+} from "@/lib/adminSession";
 
 export const Route = createFileRoute("/admin/products/new")({
   head: () => ({
@@ -54,6 +53,11 @@ function NewProductPage() {
   const [images, setImages] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!isSessionLocallyValid()) {
+      clearAdminSession();
+      router.navigate({ to: "/admin" });
+      return;
+    }
     fetch("/api/categories")
       .then((r) => r.json())
       .then((data) => {
@@ -152,6 +156,7 @@ function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    extendAdminSession();
     setSaving(true);
     const token = getToken();
     const allColors = [

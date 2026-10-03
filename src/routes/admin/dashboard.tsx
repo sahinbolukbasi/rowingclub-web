@@ -1,46 +1,68 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import {
+  getToken,
+  isSessionLocallyValid,
+  extendAdminSession,
+  clearAdminSession,
+} from "@/lib/adminSession";
 
 const API_BASE = "/api/admin";
 
-function getToken() {
-  try {
-    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
-  } catch {
-    return "";
-  }
-}
-
 async function apiGet(path: string) {
+  extendAdminSession();
   const res = await fetch(`${API_BASE}${path}?t=${getToken()}&_=${Date.now()}`);
+  if (res.status === 401) {
+    clearAdminSession();
+    window.location.href = "/admin";
+    throw new Error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 async function apiPost(path: string, body?: any) {
+  extendAdminSession();
   const res = await fetch(`${API_BASE}${path}?t=${getToken()}&_=${Date.now()}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401) {
+    clearAdminSession();
+    window.location.href = "/admin";
+    throw new Error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 async function apiPut(path: string, body: any) {
+  extendAdminSession();
   const res = await fetch(`${API_BASE}${path}?t=${getToken()}&_=${Date.now()}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (res.status === 401) {
+    clearAdminSession();
+    window.location.href = "/admin";
+    throw new Error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 async function apiDelete(path: string) {
+  extendAdminSession();
   const res = await fetch(`${API_BASE}${path}?t=${getToken()}&_=${Date.now()}`, {
     method: "DELETE",
   });
+  if (res.status === 401) {
+    clearAdminSession();
+    window.location.href = "/admin";
+    throw new Error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -80,39 +102,48 @@ export const Route = createFileRoute("/admin/dashboard")({
 });
 
 function useAdminAuth() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const router = useRouter();
+  // Oturum yerel olarak geçerliyse hemen sayfayı aç, kullanıcıyı bekletme veya şifre sorma
+  const [authed, setAuthed] = useState<boolean | null>(() => {
+    return isSessionLocallyValid() ? true : null;
+  });
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
+    if (!isSessionLocallyValid()) {
+      clearAdminSession();
+      setAuthed(false);
       router.navigate({ to: "/admin" });
       return;
     }
 
-    // Doğrudan veritabanı ve sunucu üzerinden oturum geçerliliğini doğrula
+    const token = getToken();
+
+    // Arka planda oturumu doğrula ve 2 saatlik süreyi uzat
     fetch(`${API_BASE}/auth/verify?t=${token}&_=${Date.now()}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
+        if (res.status === 401) {
+          clearAdminSession();
+          setAuthed(false);
+          router.navigate({ to: "/admin" });
+          return null;
+        }
         return res.json();
       })
       .then((data) => {
-        if (data.valid) {
+        if (data && data.valid) {
           setAuthed(true);
-        } else {
-          throw new Error("Invalid session");
+          if (data.token) {
+            extendAdminSession(data.token);
+          } else {
+            extendAdminSession();
+          }
         }
       })
-      .catch(() => {
-        sessionStorage.clear();
-        localStorage.removeItem("admin-token");
-        localStorage.removeItem("admin_authenticated");
-        localStorage.removeItem("admin_session_expires");
-        localStorage.removeItem("admin_user");
-        router.navigate({ to: "/admin" });
+      .catch((err) => {
+        // Geçici ağ kesintisinde oturum süresi bitmemişse çıkış yaptırma
+        console.warn("Oturum kontrolü:", err);
       });
-  }, []);
+  }, [router]);
 
   return authed;
 }
@@ -438,21 +469,8 @@ function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    const token = getToken();
-    try {
-      if (token) {
-        await fetch(`${API_BASE}/auth/logout?t=${token}`, { method: "POST" });
-      }
-    } catch (e) {
-      console.warn("Logout error:", e);
-    } finally {
-      sessionStorage.clear();
-      localStorage.removeItem("admin-token");
-      localStorage.removeItem("admin_authenticated");
-      localStorage.removeItem("admin_session_expires");
-      localStorage.removeItem("admin_user");
-      router.navigate({ to: "/admin" });
-    }
+    clearAdminSession();
+    router.navigate({ to: "/admin" });
   };
 
   // Save Site Content Texts & Banners

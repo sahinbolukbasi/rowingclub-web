@@ -1284,7 +1284,13 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
 
     const result = verifySessionToken(token);
     if (result.valid) {
-      return jsonResponse({ valid: true, user: result.user });
+      const refreshedToken = createSessionToken(result.user);
+      return jsonResponse({
+        valid: true,
+        user: result.user,
+        token: refreshedToken,
+        expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+      });
     }
 
     return jsonResponse({ valid: false, error: "Oturum süresi dolmuş veya geçersiz" }, 401);

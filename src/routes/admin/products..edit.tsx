@@ -10,7 +10,12 @@ const PREDEFINED_COLORS = [
   { name: "Gri", hex: "#808080" }, { name: "Krem", hex: "#f3eee2" },
 ];
 
-function getToken() { try { return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || ""; } catch { return ""; } }
+import {
+  getToken,
+  isSessionLocallyValid,
+  extendAdminSession,
+  clearAdminSession,
+} from "@/lib/adminSession";
 
 export const Route = createFileRoute("/admin/products/edit")({
   head: () => ({ meta: [{ title: "Ürün Düzenle — Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
@@ -37,6 +42,11 @@ function EditProductPage() {
   const [uploading, setUploading] = useState(false); // For image upload status
 
   useEffect(() => {
+    if (!isSessionLocallyValid()) {
+      clearAdminSession();
+      router.navigate({ to: "/admin" });
+      return;
+    }
     const token = getToken();
     fetch(`${API_BASE}/products?t=${token}`).then((r) => r.json()).then((prods) => {
       const p = prods.find((x: any) => x.id === id);

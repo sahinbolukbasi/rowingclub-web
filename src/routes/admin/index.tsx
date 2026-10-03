@@ -1,5 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getToken,
+  isSessionLocallyValid,
+  saveAdminSession,
+  extendAdminSession,
+} from "@/lib/adminSession";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -16,7 +22,38 @@ function AdminLoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState("");
+
+  // Oturum 2 saat boyunca arka planda tutulur; geçerliyse doğrudan dashboard'a yönlendir
+  useEffect(() => {
+    if (isSessionLocallyValid()) {
+      const token = getToken();
+      fetch(`/api/admin/auth/verify?t=${token}&_=${Date.now()}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Unauthorized");
+          return res.json();
+        })
+        .then((data) => {
+          if (data.valid) {
+            if (data.token) extendAdminSession(data.token);
+            window.location.href = "/admin/dashboard";
+            return;
+          }
+          setCheckingSession(false);
+        })
+        .catch(() => {
+          // Çevrimdışı/ağ hatasında oturum süresi henüz dolmadıysa yine de yönlendir
+          if (isSessionLocallyValid()) {
+            window.location.href = "/admin/dashboard";
+            return;
+          }
+          setCheckingSession(false);
+        });
+    } else {
+      setCheckingSession(false);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,15 +68,7 @@ function AdminLoginPage() {
       });
       const data = await res.json();
       if (res.ok && data.token) {
-        sessionStorage.setItem("admin-token", data.token);
-        sessionStorage.setItem("admin_authenticated", "true");
-        localStorage.setItem("admin-token", data.token);
-        localStorage.setItem("admin_session_expires", String(Date.now() + 2 * 60 * 60 * 1000));
-        if (data.user) {
-          sessionStorage.setItem("admin_user", JSON.stringify(data.user));
-          localStorage.setItem("admin_user", JSON.stringify(data.user));
-        }
-
+        saveAdminSession(data.token, data.user);
         window.location.href = "/admin/dashboard";
         return;
       } else {
@@ -51,6 +80,17 @@ function AdminLoginPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink px-6">
+        <div className="text-center">
+          <span className="mx-auto mb-4 block size-3 rounded-full bg-crim animate-pulse" />
+          <p className="font-mono text-xs text-paper/60">Oturum kontrol ediliyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink px-6">

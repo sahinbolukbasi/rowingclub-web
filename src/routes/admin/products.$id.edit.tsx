@@ -14,13 +14,12 @@ const PREDEFINED_COLORS = [
   { name: "Krem", hex: "#f3eee2" },
 ];
 
-function getToken() {
-  try {
-    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
-  } catch {
-    return "";
-  }
-}
+import {
+  getToken,
+  isSessionLocallyValid,
+  extendAdminSession,
+  clearAdminSession,
+} from "@/lib/adminSession";
 
 import { products as staticProducts } from "@/lib/products";
 
@@ -80,6 +79,11 @@ function EditProductPage() {
   }, []);
 
   useEffect(() => {
+    if (!isSessionLocallyValid()) {
+      clearAdminSession();
+      router.navigate({ to: "/admin" });
+      return;
+    }
     const token = getToken();
     fetch(`${API_BASE}/products?t=${token}`)
       .then((r) => r.json())
@@ -192,6 +196,7 @@ function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    extendAdminSession();
     setSaving(true);
     const token = getToken();
 
@@ -238,6 +243,7 @@ function EditProductPage() {
 
   const handleDelete = async () => {
     if (!window.confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
+    extendAdminSession();
     const token = getToken();
     await fetch(`${API_BASE}/products/${id}?t=${token}`, { method: "DELETE" });
     router.navigate({ to: "/admin/dashboard" });
@@ -245,6 +251,7 @@ function EditProductPage() {
 
   const handleDuplicate = async () => {
     if (!window.confirm(`"${name}" ürününün kopyasını oluşturmak istediğinize emin misiniz?`)) return;
+    extendAdminSession();
     setSaving(true);
     try {
       const token = getToken();

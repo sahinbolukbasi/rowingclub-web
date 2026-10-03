@@ -22,13 +22,12 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-crim/20 text-crim border-crim/30",
 };
 
-function getToken() {
-  try {
-    return sessionStorage.getItem("admin-token") || localStorage.getItem("admin-token") || "";
-  } catch {
-    return "";
-  }
-}
+import {
+  getToken,
+  isSessionLocallyValid,
+  extendAdminSession,
+  clearAdminSession,
+} from "@/lib/adminSession";
 
 export const Route = createFileRoute("/admin/orders/$id")({
   head: () => ({
@@ -54,6 +53,7 @@ function OrderDetailPage() {
   const [linkMsg, setLinkMsg] = useState("");
 
   const handleGeneratePaymentLink = async () => {
+    extendAdminSession();
     setGeneratingLink(true);
     setLinkMsg("");
     try {
@@ -80,6 +80,11 @@ function OrderDetailPage() {
   };
 
   const loadOrder = async () => {
+    if (!isSessionLocallyValid()) {
+      clearAdminSession();
+      router.navigate({ to: "/admin" });
+      return;
+    }
     try {
       const token = getToken();
       const res = await fetch(`${API_BASE}/orders?t=${token}`);
@@ -102,6 +107,7 @@ function OrderDetailPage() {
   }, [id]);
 
   const handleStatus = async (status: string) => {
+    extendAdminSession();
     try {
       await fetch(`/api/orders/${id}`, {
         method: "PUT",
