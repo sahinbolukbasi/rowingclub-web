@@ -55,6 +55,7 @@ function EditProductPage() {
   const [detail, setDetail] = useState("");
   const [tag, setTag] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<{ name: string; hex: string }[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [stockPerSize, setStockPerSize] = useState<Record<string, string>>({});
