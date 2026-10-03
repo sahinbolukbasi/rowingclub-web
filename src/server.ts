@@ -202,6 +202,7 @@ const _doc = DynamoDBDocumentClient.from(_client);
 const _s3Client = new S3Client({ region: REGION });
 
 const ADMIN_TOKEN = "admin-token-kurek-kulubu";
+const AUTH_SECRET = process.env.AUTH_SECRET || "kurek-kulubu-jwt-secret-key-2026-auth";
 
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -210,19 +211,50 @@ function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
+function createSessionToken(user: { id: string; username: string; name: string; role: string }): string {
+  const payload = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    exp: Date.now() + 2 * 60 * 60 * 1000, // 2 saat geçerli oturum
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", AUTH_SECRET).update(data).digest("base64url");
+  return `${data}.${signature}`;
+}
+
+function verifySessionToken(token: string): { valid: boolean; user?: any } {
+  if (!token) return { valid: false };
+  if (token === ADMIN_TOKEN) {
+    return {
+      valid: true,
+      user: { id: "admin-root", username: "admin", name: "Sistem Yöneticisi", role: "Süper Admin" },
+    };
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 2) return { valid: false };
+
+  const [data, signature] = parts;
+  const expectedSignature = crypto.createHmac("sha256", AUTH_SECRET).update(data).digest("base64url");
+  if (signature !== expectedSignature) return { valid: false };
+
+  try {
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
+    if (!payload.exp || payload.exp < Date.now()) {
+      return { valid: false };
+    }
+    return { valid: true, user: payload };
+  } catch {
+    return { valid: false };
+  }
+}
+
 function checkAuth(request: Request): boolean {
   const url = new URL(request.url);
   const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
-  if (!token) return false;
-
-  const session = activeSessions.get(token);
-  if (session && session.expiresAt > Date.now()) {
-    // Extend session on activity (sliding 2 hours)
-    session.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
-    return true;
-  }
-
-  return token === ADMIN_TOKEN;
+  return verifySessionToken(token).valid;
 }
 
 const ALL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
@@ -1227,8 +1259,6 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     // Reset attempt counter on success
     loginAttempts.delete(attemptKey);
 
-    // Generate dynamic cryptographically secure session token (no hardcoded credentials)
-    const sessionToken = "agt_" + crypto.randomBytes(32).toString("hex");
     const sessionUser = {
       id: matchedUser.id,
       username: matchedUser.username,
@@ -1236,11 +1266,8 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       role: matchedUser.role || "Admin",
     };
 
-    // Store in active sessions map with 2-hour TTL
-    activeSessions.set(sessionToken, {
-      user: sessionUser,
-      expiresAt: Date.now() + 2 * 60 * 60 * 1000,
-    });
+    // Generate signed HMAC session token that works across all Lambda instances
+    const sessionToken = createSessionToken(sessionUser);
 
     return jsonResponse({
       success: true,
@@ -1255,17 +1282,9 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     const token = url.searchParams.get("t") || request.headers.get("x-admin-token") || "";
     if (!token) return jsonResponse({ valid: false, error: "Oturum bulunamadı" }, 401);
 
-    const session = activeSessions.get(token);
-    if (session && session.expiresAt > Date.now()) {
-      session.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // extend sliding session
-      return jsonResponse({ valid: true, user: session.user });
-    }
-
-    if (token === ADMIN_TOKEN) {
-      return jsonResponse({
-        valid: true,
-        user: { username: "admin", name: "Sistem Yöneticisi", role: "Süper Admin" },
-      });
+    const result = verifySessionToken(token);
+    if (result.valid) {
+      return jsonResponse({ valid: true, user: result.user });
     }
 
     return jsonResponse({ valid: false, error: "Oturum süresi dolmuş veya geçersiz" }, 401);

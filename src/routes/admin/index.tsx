@@ -31,20 +31,16 @@ function AdminLoginPage() {
       });
       const data = await res.json();
       if (res.ok && data.token) {
-        // Güvenlik: Oturumu sadece sessionStorage'da tutuyoruz, tarayıcı kapanınca silinir.
         sessionStorage.setItem("admin-token", data.token);
         sessionStorage.setItem("admin_authenticated", "true");
+        localStorage.setItem("admin-token", data.token);
+        localStorage.setItem("admin_session_expires", String(Date.now() + 2 * 60 * 60 * 1000));
         if (data.user) {
           sessionStorage.setItem("admin_user", JSON.stringify(data.user));
+          localStorage.setItem("admin_user", JSON.stringify(data.user));
         }
 
-        // Eski kalıcı localStorage verilerini temizle
-        localStorage.removeItem("admin-token");
-        localStorage.removeItem("admin_authenticated");
-        localStorage.removeItem("admin_session_expires");
-        localStorage.removeItem("admin_user");
-
-        router.navigate({ to: "/admin/dashboard" });
+        window.location.href = "/admin/dashboard";
         return;
       } else {
         setError(data.error || "Kullanıcı adı veya şifre hatalı");
