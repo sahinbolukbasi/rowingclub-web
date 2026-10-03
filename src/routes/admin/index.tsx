@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import logoWhite from "@/assets/logo-white.png";
+import logoOrange from "@/assets/logo-orange.png";
 import {
   getToken,
   isSessionLocallyValid,
@@ -99,7 +99,7 @@ function AdminLoginPage() {
         <div className="mb-8 text-center">
           <div className="mb-4 flex justify-center">
             <img
-              src={logoWhite}
+              src={logoOrange}
               alt="Kürek Kulübü"
               width="72"
               height="72"

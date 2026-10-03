@@ -13,7 +13,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider, useCart } from "../lib/cart";
-import logoWhite from "../assets/logo-white.png";
+import logoOrange from "../assets/logo-orange.png";
 
 // Import Tailwind CSS
 import "../styles.css";
@@ -244,7 +244,7 @@ function Header() {
       <div className="flex items-center justify-between px-6 py-4 lg:px-10">
         <Link to="/" className="flex items-center gap-2 group">
           <img
-            src={logoWhite}
+            src={logoOrange}
             alt="Kürek Kulübü Logo"
             width="44"
             height="44"
@@ -312,7 +312,7 @@ function Footer() {
     <footer className="border-t border-paper/15 px-6 py-12 text-center lg:px-10">
       <div className="flex flex-col items-center justify-center gap-3">
         <img
-          src={logoWhite}
+          src={logoOrange}
           alt="Kürek Kulübü"
           width="52"
           height="52"
@@ -433,9 +433,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700&display=swap",
       },
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/assets/favicon.svg", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/favicon.svg" },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon", sizes: "any" },
+      { rel: "icon", href: "/logo32.png", type: "image/png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
     scripts: [
       {
