@@ -15,6 +15,7 @@ import {
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createIyziPaymentLink } from "./lib/iyzico";
 import crypto from "crypto";
+import { FAVICON_ICO_B64, FAVICON_PNG_B64 } from "./lib/favicon-data";
 
 const REGION = process.env.AWS_REGION ?? "eu-central-1";
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE ?? "kurek-products";
@@ -482,18 +483,24 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
     });
   }
 
-  if (path === "/favicon.svg") {
-    return new Response(FAVICON_SVG, {
+  if (path === "/favicon.ico") {
+    return new Response(Buffer.from(FAVICON_ICO_B64, "base64"), {
       status: 200,
       headers: {
-        "content-type": "image/svg+xml",
+        "content-type": "image/x-icon",
         "cache-control": "public, max-age=86400",
       },
     });
   }
 
-  if (path === "/favicon.ico") {
-    return Response.redirect(new URL("/assets/favicon.ico", request.url).toString().replace(url.host, request.headers.get("x-forwarded-host") || url.host), 302);
+  if (path === "/favicon.png" || path === "/logo32.png" || path === "/apple-touch-icon.png") {
+    return new Response(Buffer.from(FAVICON_PNG_B64, "base64"), {
+      status: 200,
+      headers: {
+        "content-type": "image/png",
+        "cache-control": "public, max-age=86400",
+      },
+    });
   }
 
   if (request.method === "OPTIONS") {

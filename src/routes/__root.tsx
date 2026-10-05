@@ -433,9 +433,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700&display=swap",
       },
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: logoOrange, type: "image/png" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon", sizes: "any" },
-      { rel: "icon", href: "/logo32.png", type: "image/png", sizes: "32x32" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "shortcut icon", href: logoOrange },
+      { rel: "apple-touch-icon", href: logoOrange },
     ],
     scripts: [
       {

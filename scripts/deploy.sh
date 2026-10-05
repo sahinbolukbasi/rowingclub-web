@@ -11,6 +11,8 @@ echo "==> 1. Proje derleniyor..."
 bun run build
 
 echo "==> 2. Statik dosyalar S3 bucket'ına yükleniyor ($S3_BUCKET/public)..."
+mkdir -p .output/public/assets
+cp public/favicon.ico public/favicon.png public/logo32.png public/apple-touch-icon.png .output/public/assets/ 2>/dev/null || true
 aws s3 sync .output/public/ "s3://$S3_BUCKET/public/" --region "$REGION"
 
 echo "==> 3. Lambda paketi hazırlanıyor ($TMP_ZIP)..."
