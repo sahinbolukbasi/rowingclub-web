@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCart } from "@/lib/cart";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 function calcDiscountedPrice(price: number, discount: any): number {
   if (!discount || discount.value <= 0) return price;
@@ -61,9 +61,40 @@ function ProductPage() {
   const discPrice = calcDiscountedPrice(product.price, product.discount);
   const hasDiscount = discPrice !== product.price;
   const images = product.images?.filter((i: string) => i) ?? [];
+  const displayImages = images.length > 0 ? images : (product.image ? [product.image] : []);
 
-  const prevImage = () => setImgIndex((i) => (i - 1 + images.length) % images.length);
-  const nextImage = () => setImgIndex((i) => (i + 1) % images.length);
+  const prevImage = () => {
+    if (displayImages.length <= 1) return;
+    setImgIndex((i) => (i - 1 + displayImages.length) % displayImages.length);
+  };
+  const nextImage = () => {
+    if (displayImages.length <= 1) return;
+    setImgIndex((i) => (i + 1) % displayImages.length);
+  };
+
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0) {
+        nextImage();
+      } else {
+        prevImage();
+      }
+    }
+  };
 
   const productSchema = {
     "@context": "https://schema.org/",
@@ -102,7 +133,7 @@ function ProductPage() {
   };
 
   return (
-    <section className="px-6 py-10 lg:px-12 xl:px-16 w-full">
+    <section className="px-4 py-8 sm:px-6 lg:px-12 xl:px-16 w-full max-w-7xl mx-auto overflow-x-hidden">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
@@ -118,53 +149,79 @@ function ProductPage() {
         </Link>
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 xl:gap-20 items-start">
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-14 xl:gap-18 items-start">
         {/* Left: Product Image & Gallery */}
-        <div className="flex flex-col w-full">
-          {/* Main Large Image Container */}
-          <div className="relative aspect-[3/4.7] min-h-[660px] sm:min-h-[780px] lg:min-h-[940px] max-h-[1040px] w-full overflow-hidden rounded-2xl border border-paper/15 bg-teal/20 flex items-center justify-center group shadow-2xl">
-            <img
-              src={images[imgIndex] || product.image || ""}
-              alt={product.name}
-              onClick={() => setZoomModal(true)}
-              className="h-full w-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
-            />
+        <div className="flex flex-col w-full max-w-lg lg:max-w-none mx-auto">
+          {/* Main Large Image Container with Touch Swipe */}
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="relative aspect-[3/4] sm:aspect-[4/5] lg:aspect-[3/4.5] sm:min-h-[640px] lg:min-h-[850px] max-h-[920px] w-full overflow-hidden rounded-2xl border border-paper/15 bg-teal/20 flex items-center justify-center group shadow-2xl select-none touch-pan-y"
+          >
+            {/* Sliding Track for smooth image transitions */}
+            <div
+              className="flex h-full w-full transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${imgIndex * 100}%)` }}
+            >
+              {displayImages.map((img: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="h-full w-full flex-shrink-0 flex items-center justify-center cursor-zoom-in"
+                  onClick={() => setZoomModal(true)}
+                >
+                  <img
+                    src={img}
+                    alt={`${product.name} - ${idx + 1}`}
+                    className="h-full w-full object-cover select-none pointer-events-none"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Photo Counter (e.g. 1 / 4) */}
+            {displayImages.length > 1 && (
+              <div className="absolute top-3.5 left-3.5 z-20 rounded-full bg-ink/75 border border-paper/20 px-2.5 py-1 text-[11px] font-mono tracking-wider text-paper/90 backdrop-blur-md shadow-md pointer-events-none">
+                {imgIndex + 1} / {displayImages.length}
+              </div>
+            )}
 
             {/* Zoom Button Badge */}
             <button
               onClick={() => setZoomModal(true)}
-              className="absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-ink/80 border border-paper/20 px-3 py-1.5 text-[10px] uppercase tracking-wider text-paper opacity-80 hover:opacity-100 transition shadow-lg cursor-pointer"
+              className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 rounded-full bg-ink/80 border border-paper/20 px-3 py-1.5 text-[10px] uppercase tracking-wider text-paper opacity-85 hover:opacity-100 transition shadow-lg cursor-pointer"
             >
               🔍 Büyüt
             </button>
 
-            {/* Küçük Resimler (Thumbnails - Photo Bottom Overlay) */}
-            {images.length > 1 && (
-              <div className="absolute bottom-4 left-4 z-20 flex max-w-[calc(100%-32px)] flex-wrap gap-2.5 rounded-xl bg-ink/80 p-2 backdrop-blur-md border border-paper/20 shadow-2xl">
-                {images.map((img: string, idx: number) => (
+            {/* Mobile Dots Indicator */}
+            {displayImages.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:hidden bg-ink/70 px-3 py-1.5 rounded-full backdrop-blur-md border border-paper/15">
+                {displayImages.map((_: any, idx: number) => (
                   <button
                     key={idx}
                     onClick={(e) => {
                       e.stopPropagation();
                       setImgIndex(idx);
                     }}
-                    className={`size-14 sm:size-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all cursor-pointer shadow-md ${
-                      idx === imgIndex
-                        ? "border-crim ring-2 ring-crim/30 scale-105"
-                        : "border-paper/20 opacity-60 hover:opacity-100 hover:border-paper/50"
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === imgIndex ? "w-5 bg-crim" : "w-1.5 bg-paper/40"
                     }`}
-                  >
-                    <img src={img} alt={`Görsel ${idx + 1}`} className="h-full w-full object-cover" />
-                  </button>
+                    aria-label={`Görsel ${idx + 1}`}
+                  />
                 ))}
               </div>
             )}
 
-            {images.length > 1 && (
+            {/* Navigation Arrows (visible on mobile touch, hover on desktop) */}
+            {displayImages.length > 1 && (
               <>
                 <button
-                  onClick={prevImage}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-ink/70 text-paper opacity-0 group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }}
+                  className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 z-20 flex size-9 sm:size-10 items-center justify-center rounded-full bg-ink/80 text-paper border border-paper/20 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg cursor-pointer active:scale-95"
                   aria-label="Önceki Görsel"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -172,8 +229,11 @@ function ProductPage() {
                   </svg>
                 </button>
                 <button
-                  onClick={nextImage}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-ink/70 text-paper opacity-0 group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 z-20 flex size-9 sm:size-10 items-center justify-center rounded-full bg-ink/80 text-paper border border-paper/20 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition hover:bg-crim hover:text-ink shadow-lg cursor-pointer active:scale-95"
                   aria-label="Sonraki Görsel"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -183,6 +243,25 @@ function ProductPage() {
               </>
             )}
           </div>
+
+          {/* Thumbnails Row below photo */}
+          {displayImages.length > 1 && (
+            <div className="mt-3.5 flex items-center justify-center sm:justify-start gap-2.5 overflow-x-auto py-1 px-1 max-w-full">
+              {displayImages.map((img: string, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => setImgIndex(idx)}
+                  className={`size-14 sm:size-16 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all cursor-pointer shadow-md ${
+                    idx === imgIndex
+                      ? "border-crim ring-2 ring-crim/30 scale-105"
+                      : "border-paper/20 opacity-60 hover:opacity-100 hover:border-paper/50"
+                  }`}
+                >
+                  <img src={img} alt={`Görsel ${idx + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Product Details (Sticky so it stays visible while scrolling image) */}
@@ -304,15 +383,37 @@ function ProductPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/90 p-4 backdrop-blur-md cursor-pointer"
           onClick={() => setZoomModal(false)}
         >
-          <div className="relative max-h-[90vh] max-w-[90vw]">
+          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <img
-              src={images[imgIndex] || product.image || ""}
+              src={displayImages[imgIndex] || product.image || ""}
               alt={product.name}
-              className="max-h-[90vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+              className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
             />
+            {displayImages.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/80 text-paper border border-paper/20 hover:bg-crim hover:text-ink transition cursor-pointer"
+                  aria-label="Önceki Görsel"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-ink/80 text-paper border border-paper/20 hover:bg-crim hover:text-ink transition cursor-pointer"
+                  aria-label="Sonraki Görsel"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </>
+            )}
             <button
               onClick={() => setZoomModal(false)}
-              className="absolute -top-4 -right-4 flex size-10 items-center justify-center rounded-full bg-crim text-ink font-bold text-base shadow-xl hover:bg-cyan transition cursor-pointer"
+              className="absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full bg-crim text-ink font-bold text-base shadow-xl hover:bg-cyan transition cursor-pointer"
             >
               ✕
             </button>
