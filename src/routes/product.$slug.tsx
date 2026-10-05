@@ -22,6 +22,7 @@ function ProductPage() {
   const [color, setColor] = useState<string>("");
   const [imgIndex, setImgIndex] = useState(0);
   const [zoomModal, setZoomModal] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const THUMB_COUNT = 3;
 
   useEffect(() => {
@@ -71,8 +72,6 @@ function ProductPage() {
     if (displayImages.length <= 1) return;
     setImgIndex((i) => (i + 1) % displayImages.length);
   };
-
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartRef.current = {
